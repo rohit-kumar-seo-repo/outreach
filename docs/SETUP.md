@@ -21,17 +21,19 @@ Traefik requests the certificate automatically after the record resolves to the 
 
 hPanel → **VPS** → **Docker Manager** → **Compose** → create a project named `outreach`.
 
-Compose URL:
+Paste the contents of `deploy/hostinger/docker-compose.yml` as the compose file. The project is already deployed this way.
 
-```
-https://raw.githubusercontent.com/rohit-kumar-seo-repo/outreach/<branch>/deploy/hostinger/docker-compose.yml
-```
+A raw GitHub URL also works once the file is on `main`. Docker Manager could not fetch it from a branch whose name contains `/`.
 
-Or paste the contents of `deploy/hostinger/docker-compose.yml`.
+Docker Manager only pulls images and never builds them, so the project uses public images only:
 
-The images are built on the VPS from this repository. `GIT_REF` selects the branch or tag to build, and defaults to `main`. Until this work is merged into `main`, set `GIT_REF=claude/dreamy-ptolemy-1pzokr`.
+- A one-shot `builder` container (`node:22-alpine`) clones this repository at `GIT_REF`, builds it, and writes the release into the `outreach_release` volume.
+- `migrate`, `app` and `worker` run that release with `node:22-alpine`.
+- `backup` runs `pg_dump` with `postgres:16-alpine`.
 
-> If you make the repository private, remote builds need credentials. In that case, switch `build:` to a pre-built image, e.g. from GitHub Actions and `ghcr.io`, which is how `clientos` is deployed.
+**To update the live site, redeploy the project.** The builder rebuilds from `GIT_REF`, which defaults to `main`. Until this work is merged into `main`, set `GIT_REF=claude/dreamy-ptolemy-1pzokr`.
+
+> The builder clones anonymously, so it needs the repository to be public. If you make the repository private, switch to a pre-built image instead, e.g. GitHub Actions → `ghcr.io`, which is how `clientos` is deployed.
 
 ### Environment variables
 
@@ -82,7 +84,7 @@ Each source is optional. Anything not connected shows "Not connected" on the das
 
 - Open `https://outreach.rohitkumarseo.com/api/health`. It should return `{"ok":true}`.
 - Log in and open **Integrations**: every connected source should show a recent successful sync.
-- In hPanel Docker Manager, the `outreach` project should list `db`, `app`, `worker` and `backup` as running. `migrate` runs once and exits with code 0.
+- In hPanel Docker Manager, the `outreach` project should list `db`, `app`, `worker` and `backup` as running. `builder` and `migrate` run once and exit with code 0.
 
 ## Backups and restore
 
