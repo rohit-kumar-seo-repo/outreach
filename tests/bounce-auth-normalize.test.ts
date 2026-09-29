@@ -127,6 +127,10 @@ describe('secrets split across 256-character hPanel fields', () => {
     expect(joinParts([jwt.slice(0, cut), jwt.slice(cut)])).toBe(jwt); // dot kept with part 2
     expect(joinParts([jwt.slice(0, cut + 1), jwt.slice(cut + 1)])).toBe(jwt); // dot kept with part 1
     expect(joinParts([jwt.slice(0, cut), jwt.slice(cut + 1)])).toBe(jwt); // dot dropped
+    const [h, p, sig] = jwt.split('.');
+    expect(joinParts([h, p, sig])).toBe(jwt); // split at both dots, dots dropped
+    expect(joinParts([h, `${p}.${sig}`])).toBe(jwt);
+    expect(joinParts([jwt.slice(0, 30), jwt.slice(30)])).toBe(jwt); // split mid-segment: untouched
     expect(joinParts([jwt, undefined, ''])).toBe(jwt);
     expect(joinParts(['abc', 'def'])).toBe('abcdef'); // not a JWT: plain concatenation
   });

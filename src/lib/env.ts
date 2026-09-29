@@ -26,14 +26,22 @@ function list(name: string): string[] {
 /**
  * hPanel's Docker Manager limits each environment value to 256 characters, so a long secret
  * (an n8n API key is ~270) can be split across NAME, NAME_2, NAME_3 and is joined here.
- * n8n keys are JWTs: if the split dropped the dot between the last two parts, it is restored.
+ * n8n keys are JWTs (header.payload.signature): if the split dropped dots at the part
+ * boundaries, the missing ones are restored there.
  */
 export function joinParts(parts: (string | undefined)[]): string {
   const vals = parts.map((p) => (p ?? '').trim()).filter(Boolean);
+  const plain = vals.join('');
+  if (!plain.startsWith('eyJ')) return plain;
+  let missing = 2 - (plain.match(/\./g)?.length ?? 0);
+  if (missing <= 0) return plain;
   let out = vals[0] ?? '';
   for (const next of vals.slice(1)) {
-    const jwtGap = out.startsWith('eyJ') && out.split('.').length === 2 && !out.endsWith('.') && !next.startsWith('.') && !next.includes('.');
-    out += (jwtGap ? '.' : '') + next;
+    if (missing > 0 && !out.endsWith('.') && !next.startsWith('.')) {
+      out += '.';
+      missing--;
+    }
+    out += next;
   }
   return out;
 }
