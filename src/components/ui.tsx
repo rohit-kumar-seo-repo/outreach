@@ -38,7 +38,7 @@ export function Tip({ text }: { text: string }) {
       <HelpCircle size={13} className="text-ink-3" aria-hidden />
       <span
         role="tooltip"
-        className="pointer-events-none absolute left-1/2 top-5 z-30 hidden w-64 -translate-x-1/2 rounded-md bg-navy-900 px-3 py-2 text-[11.5px] font-normal leading-snug text-white shadow-lg group-hover:block group-focus:block"
+        className="pointer-events-none absolute left-1/2 top-5 z-30 hidden w-64 -translate-x-1/2 rounded-md bg-ink px-3 py-2 text-[11.5px] font-normal leading-snug text-white shadow-lg group-hover:block group-focus:block"
       >
         {text}
       </span>

@@ -91,7 +91,7 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
                 <Icon size={17} aria-hidden className={active ? 'text-white' : 'text-navy-300'} />
                 <span className="flex-1">{label}</span>
                 {badge ? (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white tabular ${href === '/alerts' ? 'bg-critical' : 'bg-brand'}`} aria-label={`${badge} need attention`}>
+                  <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-navy-900 tabular" aria-label={`${badge} need attention`}>
                     {badge > 99 ? '99+' : badge}
                   </span>
                 ) : null}
