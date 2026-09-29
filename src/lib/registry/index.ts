@@ -10,6 +10,7 @@ export const SHEET_STATES = [
   'failed',
   'replied',
   'completed',
+  'bounced',
   'excluded',
   'unknown',
 ] as const;
@@ -19,7 +20,7 @@ const fieldRef = z.object({
   const: z.union([z.string(), z.number()]).optional(),
   field: z.string().optional(),
   template: z.string().optional(),
-  transform: z.enum(['minus_one', 'plus_one', 'fu_status']).optional(),
+  transform: z.enum(['minus_one', 'plus_one', 'fu_status', 'fu_suffix']).optional(),
 });
 
 const sendNode = z.object({
@@ -86,6 +87,8 @@ const source = z.object({
   requireDraft: z.boolean().optional(),
   statusRules: z.array(statusRule),
   history: z.enum(['status_sent_iso', 'touch_sequence', 'status_sent_date', 'fu_status', 'stage_counter', 'wa_status']),
+  // Follow-ups stored as separate rows: pattern captures (lead key, step) from `column`, e.g. "^(.*)-fu(\\d+)$".
+  touchRows: z.object({ column: z.string(), pattern: z.string() }).optional(),
   omitColumns: z.array(z.string()).optional(),
 });
 

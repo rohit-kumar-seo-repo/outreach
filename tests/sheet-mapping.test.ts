@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { registry } from '@/lib/registry';
-import { mapRows, sheetStateFor } from '@/lib/sync/sheet-mapping';
+import { normalizeRowKey } from '@/lib/sync/record';
+import { mapRows, sheetStateFor, touchRowOf } from '@/lib/sync/sheet-mapping';
 
 const src = (key: string) => registry().sources.find((s) => s.key === key)!;
 
@@ -14,6 +15,21 @@ describe('sheet mapping', () => {
     expect(sheetStateFor(s, 'Drafted - Awaiting Approval')).toBe('awaiting_approval');
     expect(sheetStateFor(s, '')).toBe('new');
     expect(sheetStateFor(s, 'something odd')).toBe('unknown');
+    expect(sheetStateFor(s, 'Call list only')).toBe('excluded');
+    expect(sheetStateFor(s, 'BOUNCED 2026-09-12: no such user (gmail) - Sent Tue 8:48pm IST (manual)')).toBe('bounced');
+    expect(sheetStateFor(s, 'Sent 2026-09-10T10:00:00.000+05:30 - BOUNCED: recipient mailbox full')).toBe('bounced');
+  });
+
+  it('keeps the original send for rows later marked BOUNCED', () => {
+    const [a, b] = mapRows(src('gads_outreach_sheet'), [
+      { row_number: 2, LeadID: 'us-gads-9', Email: 'x@nine.example', Status: 'BOUNCED 2026-09-12: no such user - Sent 2026-09-08T20:48:00.000+05:30' },
+      { row_number: 3, LeadID: 'us-gads-10', Email: 'y@ten.example', Status: 'BOUNCED 2026-09-12: 421 downstream server error - Sent Tue 8:51pm IST' },
+    ]);
+    expect(a.sheetState).toBe('bounced');
+    expect(a.history).toHaveLength(1);
+    expect(a.history[0]).toMatchObject({ result: 'accepted', timeQuality: 'exact' });
+    expect(a.history[0].occurredAt?.toISOString()).toBe('2026-09-08T15:18:00.000Z');
+    expect(b.history[0]).toMatchObject({ result: 'accepted', timeQuality: 'unknown', occurredAt: null });
   });
 
   it('keeps timestamps honest: exact only when the sheet has a full ISO timestamp', () => {
@@ -31,6 +47,31 @@ describe('sheet mapping', () => {
     expect(rows[2].sheetState).toBe('ready'); // approved but unscheduled: the dispatcher skips it
     expect(rows[3].sheetState).toBe('queued');
     expect(rows[3].scheduledSendAt?.toISOString()).toBe('2026-09-30T08:00:00.000Z');
+  });
+
+  it('folds -fuN follow-up rows into their lead as steps 1..n', () => {
+    const s = src('gads_outreach_sheet');
+    const leads = mapRows(s, [
+      { row_number: 2, LeadID: 'seo-acme', Email: 'hi@acme.example', Status: 'Sent 2026-09-01T10:00:00.000+05:30', 'Send-from mailbox': 'seo@rohitkumarseo.tech' },
+      { row_number: 3, LeadID: 'seo-acme-fu1', Email: 'hi@acme.example', Status: 'Sent 2026-09-04T17:30:23.697+08:00' },
+      { row_number: 4, LeadID: 'seo-acme-fu2', Email: 'hi@acme.example', Status: 'Approved', ScheduledSendISO: '2026-09-07T17:30:00+08:00' },
+      { row_number: 5, LeadID: 'gads-orphan-fu1', Email: 'x@orphan.example', Status: 'Sent 2026-09-05T09:00:00Z' },
+      { row_number: 6, LeadID: 'seo-bee-fu1', Email: 'b@bee.example', Status: 'REPLIED 2026-09-06 - Sent 2026-09-05T09:00:00Z' },
+      { row_number: 7, LeadID: 'seo-bee', Email: 'b@bee.example', Status: 'Sent 2026-09-02T09:00:00Z' },
+    ]);
+    expect(leads).toHaveLength(3);
+    const [acme, bee, orphan] = leads;
+    expect(acme.rowKey).toBe('seo-acme');
+    expect(acme.duplicateInSource).toBe(false);
+    expect(acme.history.map((h) => [h.step, h.result, h.timeQuality])).toEqual([[0, 'accepted', 'exact'], [1, 'accepted', 'exact']]);
+    expect(acme.history[1].idempotencyKey).toBe('sheet:gads_outreach_sheet:seo-acme:1:accepted');
+    expect(acme.sourceNextTouchAt?.toISOString()).toBe('2026-09-07T09:30:00.000Z');
+    expect(bee.sheetState).toBe('replied');
+    expect(bee.history.map((h) => h.step)).toEqual([0, 1]);
+    expect(orphan.rowKey).toBe('gads-orphan');
+    expect(orphan.history.map((h) => h.step)).toEqual([1]);
+    expect(touchRowOf(s, 'seo-fuel-co')).toBeNull();
+    expect(normalizeRowKey(s, 'seo-acme-fu3')).toBe('seo-acme');
   });
 
   it('derives SEO audit sequence history from TouchNumber and SentAt', () => {

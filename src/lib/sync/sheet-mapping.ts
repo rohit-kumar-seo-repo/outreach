@@ -119,8 +119,10 @@ function historyFor(src: SourceDef, lead: Omit<LeadRecord, 'history'>, row: Row)
 
   switch (src.history) {
     case 'status_sent_iso': {
-      if (state === 'sent') {
-        const t = parseSheetTimestamp(status.replace(/^sent\s*/i, ''));
+      // "Sent 2026-09-22T…"; bounce/reply notes keep the original "… - Sent <time>" text.
+      const sentPart = status.match(/\bsent\b\s*(.*)$/i);
+      if (state === 'sent' || ((state === 'bounced' || state === 'replied') && sentPart)) {
+        const t = parseSheetTimestamp(sentPart ? sentPart[1] : '');
         out.push(base(0, 'accepted', t.at, t.quality));
       } else if (state === 'failed') {
         out.push(base(0, 'failed', null, 'unknown', { errorMessage: status }));
@@ -182,11 +184,27 @@ function historyFor(src: SourceDef, lead: Omit<LeadRecord, 'history'>, row: Row)
   return out;
 }
 
+/** Splits a follow-up row's key ("seo-acme-fu2") into its lead key and step, per the source's touchRows rule. */
+export function touchRowOf(src: Pick<SourceDef, 'touchRows'>, value: unknown): { base: string; step: number } | null {
+  if (!src.touchRows) return null;
+  const m = str(value).match(new RegExp(src.touchRows.pattern, 'i'));
+  if (!m) return null;
+  const step = Number(m[2]);
+  return m[1] && Number.isFinite(step) && step > 0 ? { base: m[1], step } : null;
+}
+
 export function mapRows(src: SourceDef, rows: Row[]): LeadRecord[] {
   const seenKeys = new Map<string, number>();
   const out: LeadRecord[] = [];
-  const c = src.columns;
+  // Sources that store each follow-up as its own row (LeadID "…-fu1") fold those rows into the lead.
+  const touches: { base: string; step: number; row: Row }[] = [];
+  const byBase = new Map<string, LeadRecord>();
   for (const row of rows) {
+    const t = src.touchRows ? touchRowOf(src, row[src.touchRows.column]) : null;
+    if (t) {
+      touches.push({ ...t, row });
+      continue;
+    }
     const { key, stable } = rowKeyFor(src, row);
     const rowNumber = intOrNull(row.row_number) ?? intOrNull(row.id);
     let rowKey = key;
@@ -199,6 +217,47 @@ export function mapRows(src: SourceDef, rows: Row[]): LeadRecord[] {
     } else {
       seenKeys.set(key, 1);
     }
+    const lead = mapRow(src, row, rowKey, stable, duplicateInSource);
+    out.push(lead);
+    if (src.touchRows && !duplicateInSource) byBase.set(str(row[src.touchRows.column]), lead);
+  }
+
+  touches.sort((a, b) => a.step - b.step);
+  for (const t of touches) {
+    const col = src.touchRows!.column;
+    let lead = byBase.get(t.base);
+    if (!lead) {
+      // Follow-up rows whose original row is missing still describe one lead.
+      const { key, stable } = rowKeyFor(src, { ...t.row, [col]: t.base });
+      lead = { ...mapRow(src, { ...t.row, [col]: t.base }, key, stable, false), history: [] };
+      out.push(lead);
+      byBase.set(t.base, lead);
+    }
+    const touch = mapRow(src, t.row, lead.rowKey, true, false);
+    for (const h of touch.history) {
+      lead.history.push({
+        ...h,
+        step: t.step,
+        idempotencyKey: `sheet:${src.key}:${lead.rowKey}:${t.step}:${h.result}`,
+        leadRowKey: lead.rowKey,
+        campaignSlug: lead.campaignSlug,
+      });
+    }
+    if (touch.sheetState === 'queued' && touch.scheduledSendAt) {
+      if (!lead.sourceNextTouchAt || touch.scheduledSendAt < lead.sourceNextTouchAt) lead.sourceNextTouchAt = touch.scheduledSendAt;
+    }
+    if (touch.sheetState === 'replied' || (touch.sheetState === 'bounced' && lead.sheetState !== 'replied')) {
+      lead.sheetState = touch.sheetState;
+      lead.sheetStatus = touch.sheetStatus;
+    }
+  }
+  return out;
+}
+
+function mapRow(src: SourceDef, row: Row, rowKey: string, stable: boolean, duplicateInSource: boolean): LeadRecord {
+  const c = src.columns;
+  const rowNumber = intOrNull(row.row_number) ?? intOrNull(row.id);
+  {
     const sheetStatus = str(row[c.status]);
     let sheetState = sheetStateFor(src, sheetStatus);
     const emailRaw = first(row, c.email);
@@ -250,7 +309,6 @@ export function mapRows(src: SourceDef, rows: Row[]): LeadRecord[] {
       sourceNextTouchAt,
       raw: cleanRaw(src, row),
     };
-    out.push({ ...lead, history: historyFor(src, lead, row) });
+    return { ...lead, history: historyFor(src, lead, row) };
   }
-  return out;
 }

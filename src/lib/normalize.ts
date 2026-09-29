@@ -26,7 +26,8 @@ export function emailDomain(email: string | null | undefined): string | null {
 }
 
 export function digitsOnly(value: unknown): string {
-  return String(value ?? '').replace(/\D/g, '');
+  // Spreadsheet exports can render a phone stored as a number as "9871530594.0".
+  return String(value ?? '').trim().replace(/\.0+$/, '').replace(/\D/g, '');
 }
 
 export type PhoneRule = 'india10' | 'uae' | 'any';

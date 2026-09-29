@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { registry } from '@/lib/registry';
-import { extractFromExecution, senderNodesIn, type N8nExecution } from '@/lib/sync/n8n-extract';
+import { extractFromExecution, resolveStep, senderNodesIn, type N8nExecution } from '@/lib/sync/n8n-extract';
 
 const wf = (id: string) => registry().workflows.find((w) => w.id === id)!;
 
 describe('n8n execution extraction', () => {
+  it('reads follow-up steps from a -fuN lead key suffix', () => {
+    const ref = { field: 'LeadID', transform: 'fu_suffix' as const };
+    expect(resolveStep(ref, { LeadID: 'seo-acme-fu2' })).toBe(2);
+    expect(resolveStep(ref, { LeadID: 'seo-fuel-co' })).toBe(0);
+    expect(resolveStep(ref, { LeadID: 'us-gads-12' })).toBe(0);
+  });
+
   it('reads SMTP sends (agency campaign) with message id and SMTP response', () => {
     const exec: N8nExecution = {
       id: '26000',

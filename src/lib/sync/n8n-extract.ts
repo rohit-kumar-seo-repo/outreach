@@ -86,6 +86,12 @@ export function resolveStep(ref: FieldRef, json: Json | null): number {
       n = m ? Number(m[1]) : 0;
       break;
     }
+    case 'fu_suffix': {
+      // Lead keys like "seo-acme-fu2" mark follow-up rows; anything else is the original send.
+      const m = raw.match(/-fu(\d+)$/i);
+      n = m ? Number(m[1]) : 0;
+      break;
+    }
     default:
       n = Number(raw);
   }

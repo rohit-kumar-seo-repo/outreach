@@ -100,8 +100,9 @@
         "NJLi3kOJRaoB5Bu7"
       ],
       "followup": {
-        "mode": "none",
-        "note": "No follow-up workflow exists for this campaign."
+        "mode": "source_schedule",
+        "maxSteps": 3,
+        "note": "Follow-ups are separate sheet rows (LeadID suffix -fu1 to -fu3) that the Outreach Send Dispatcher sends at their ScheduledSendISO. The next follow-up is the earliest approved, unsent -fuN row."
       }
     },
     {
@@ -114,8 +115,9 @@
         "NJLi3kOJRaoB5Bu7"
       ],
       "followup": {
-        "mode": "none",
-        "note": "No follow-up workflow exists for this campaign."
+        "mode": "source_schedule",
+        "maxSteps": 3,
+        "note": "Follow-ups are separate sheet rows (LeadID suffix -fu1 to -fu3) that the Outreach Send Dispatcher sends at their ScheduledSendISO. The next follow-up is the earliest approved, unsent -fuN row."
       }
     },
     {
@@ -304,6 +306,10 @@
       "blankStatus": "new",
       "statusRules": [
         {
+          "match": "\\bbounced\\b",
+          "state": "bounced"
+        },
+        {
           "match": "^approved$",
           "state": "queued"
         },
@@ -326,9 +332,17 @@
         {
           "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
           "state": "excluded"
+        },
+        {
+          "match": "^call list",
+          "state": "excluded"
         }
       ],
       "history": "status_sent_iso",
+      "touchRows": {
+        "column": "LeadID",
+        "pattern": "^(.*)-fu(\\d+)$"
+      },
       "omitColumns": [
         "TextBody",
         "HTMLBody",
@@ -853,7 +867,8 @@
             "field": "Subject"
           },
           "step": {
-            "const": 0
+            "field": "LeadID",
+            "transform": "fu_suffix"
           }
         }
       ]

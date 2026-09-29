@@ -2,6 +2,7 @@ import type { Queryable } from '../db';
 import { one, pool, q } from '../db';
 import { digitsOnly, normalizeEmail } from '../normalize';
 import { registry, type SourceDef } from '../registry';
+import { touchRowOf } from './sheet-mapping';
 
 export type Channel = 'email' | 'whatsapp';
 export type TimeQuality = 'exact' | 'date_only' | 'unknown';
@@ -38,7 +39,9 @@ export function normalizeRecipient(channel: Channel, recipient: string): string 
   return normalizeEmail(recipient) ?? recipient.trim().toLowerCase();
 }
 
-export function normalizeRowKey(src: Pick<SourceDef, 'rowKeyNormalize'>, value: string): string {
+export function normalizeRowKey(src: Pick<SourceDef, 'rowKeyNormalize' | 'touchRows'>, value: string): string {
+  const touch = touchRowOf(src, value);
+  if (touch) value = touch.base;
   if (src.rowKeyNormalize === 'email') return normalizeEmail(value) ?? value.trim().toLowerCase();
   if (src.rowKeyNormalize === 'phone') return digitsOnly(value) || value.trim();
   return value.trim();

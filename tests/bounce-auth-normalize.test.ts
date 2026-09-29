@@ -98,6 +98,7 @@ describe('normalization', () => {
     expect(normalizeSubject('RE: Fwd: Re:  Quick   question')).toBe('quick question');
     expect(toWaChatId('+91 98765 43210', 'india10')).toBeNull(); // the sender requires exactly 10 digits
     expect(toWaChatId('98765-43210', 'india10')).toBe('919876543210@c.us');
+    expect(toWaChatId('9871530594.0', 'india10')).toBe('919871530594@c.us'); // numeric cell exported as float
   });
 
   it('never upgrades vague sheet times to exact ones', () => {

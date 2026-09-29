@@ -149,7 +149,7 @@ create table leads (
   country                text,
   category               text,
   sheet_status           text,                 -- raw status text, exactly as in the source
-  sheet_state            text,                 -- normalized: new | ready | queued | sent | failed | replied | completed | excluded | unknown
+  sheet_state            text,                 -- normalized: new | ready | queued | sent | failed | replied | completed | bounced | excluded | unknown
   scheduled_send_at      timestamptz,
   scheduled_date         date,
   planned_sender         text,

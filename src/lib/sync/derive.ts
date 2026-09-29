@@ -113,7 +113,7 @@ export async function deriveLeads(): Promise<void> {
       await q(
         `update leads l set next_followup_at = x.nf
            from (select l.id,
-                   case when l.last_reply_at is not null or l.suppressed or l.bounced_at is not null or l.sheet_state in ('replied', 'completed', 'excluded')
+                   case when l.last_reply_at is not null or l.suppressed or l.bounced_at is not null or l.sheet_state in ('replied', 'completed', 'bounced', 'excluded')
                         then l.manual_followup_at
                         else nullif(least(coalesce(${expr}, 'infinity'::timestamptz), coalesce(l.manual_followup_at, 'infinity'::timestamptz)), 'infinity'::timestamptz)
                    end as nf
@@ -132,7 +132,7 @@ export async function deriveLeads(): Promise<void> {
       `update leads l set status = x.st, updated_at = now()
          from (select l.id, case
                  when l.suppressed then 'unsubscribed'
-                 when l.bounced_at is not null then 'bounced'
+                 when l.bounced_at is not null or l.sheet_state = 'bounced' then 'bounced'
                  when l.reply_sentiment = 'positive' then 'positive'
                  when l.reply_sentiment = 'not_interested' then 'not_interested'
                  when l.last_reply_at is not null or (l.sheet_state = 'replied' and l.sends_accepted > 0) then 'replied'
