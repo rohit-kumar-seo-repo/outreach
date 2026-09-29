@@ -118,3 +118,16 @@ describe('normalization', () => {
     expect(localDate(noon, 'Asia/Kolkata')).toBe('2026-09-22');
   });
 });
+
+describe('secrets split across 256-character hPanel fields', () => {
+  it('joins N8N_API_KEY parts and restores a dropped JWT dot', async () => {
+    const { joinParts } = await import('@/lib/env');
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJl';
+    const cut = jwt.lastIndexOf('.');
+    expect(joinParts([jwt.slice(0, cut), jwt.slice(cut)])).toBe(jwt); // dot kept with part 2
+    expect(joinParts([jwt.slice(0, cut + 1), jwt.slice(cut + 1)])).toBe(jwt); // dot kept with part 1
+    expect(joinParts([jwt.slice(0, cut), jwt.slice(cut + 1)])).toBe(jwt); // dot dropped
+    expect(joinParts([jwt, undefined, ''])).toBe(jwt);
+    expect(joinParts(['abc', 'def'])).toBe('abcdef'); // not a JWT: plain concatenation
+  });
+});

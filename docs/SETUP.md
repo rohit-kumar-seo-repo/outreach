@@ -49,8 +49,9 @@ Set these in the project's **Environment** tab in hPanel. They live only on the 
 | `GIT_REF` | no | Branch or tag to build (default `main`). |
 | `DOMAIN` | no | Default `outreach.rohitkumarseo.com`. |
 | `N8N_BASE_URL`, `N8N_API_KEY` | for n8n history | n8n's address and an API key (n8n → Settings → n8n API → Create API key). On this VPS the address can be `http://host.docker.internal:<n8n host port>`, the port Docker Manager shows for the n8n project. |
+| `N8N_API_KEY_2` | if needed | hPanel accepts at most 256 characters per value, and n8n keys are about 270. Put everything **before the last `.`** in `N8N_API_KEY`, and the last `.` plus the rest in `N8N_API_KEY_2`. The dashboard joins them. |
 | `N8N_BRIDGE_URL`, `N8N_BRIDGE_KEY` | for sheets | `<n8n URL>/webhook/outreach-dashboard-bridge` and the key you store in the bridge's Header Auth credential (see step 3). |
-| `HOSTINGER_MAIL_TOKENS` | for mailboxes | Hostinger Email API tokens, comma-separated. One token covers the mailboxes of one mail order. |
+| `HOSTINGER_MAIL_TOKENS`, `HOSTINGER_MAIL_TOKENS_2` … `_6` | for mailboxes | Hostinger Email API tokens, one per variable. One token covers the mailboxes of one mail order (rohitkumarseo.tech, adssuspensionrecovery.com, rkdigitalmedia.in). Create each with scope *All mailboxes*. |
 | `IMAP_ACCOUNTS_JSON` | alternative to tokens | `[{"address":"agency@adssuspensionrecovery.com","password":"…"}]`. Host defaults to `imap.hostinger.com:993`. Access is read-only: messages are never marked read or moved. |
 | `WAHA_BASE_URL`, `WAHA_API_KEY` | for WhatsApp | WAHA's address, e.g. `http://host.docker.internal:<WAHA host port>`, and its API key. |
 | `INGEST_KEY` | optional | Enables `POST /api/ingest/n8n` for workflows that push events. |

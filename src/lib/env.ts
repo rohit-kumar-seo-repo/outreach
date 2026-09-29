@@ -23,6 +23,21 @@ function list(name: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * hPanel's Docker Manager limits each environment value to 256 characters, so a long secret
+ * (an n8n API key is ~270) can be split across NAME, NAME_2, NAME_3 and is joined here.
+ * n8n keys are JWTs: if the split dropped the dot between the last two parts, it is restored.
+ */
+export function joinParts(parts: (string | undefined)[]): string {
+  const vals = parts.map((p) => (p ?? '').trim()).filter(Boolean);
+  let out = vals[0] ?? '';
+  for (const next of vals.slice(1)) {
+    const jwtGap = out.startsWith('eyJ') && out.split('.').length === 2 && !out.endsWith('.') && !next.startsWith('.') && !next.includes('.');
+    out += (jwtGap ? '.' : '') + next;
+  }
+  return out;
+}
+
 function int(name: string, fallback: number): number {
   const v = read(name);
   const n = v ? Number.parseInt(v, 10) : Number.NaN;
@@ -97,7 +112,7 @@ export const env = {
     return (read('N8N_BASE_URL') ?? '').replace(/\/+$/, '');
   },
   get n8nApiKey() {
-    return read('N8N_API_KEY') ?? '';
+    return joinParts([read('N8N_API_KEY'), read('N8N_API_KEY_2'), read('N8N_API_KEY_3')]);
   },
   get bridgeUrl() {
     return read('N8N_BRIDGE_URL') ?? '';
@@ -109,8 +124,10 @@ export const env = {
     return read('INGEST_KEY') ?? '';
   },
   // mailboxes
+  /** One token per mail order: comma-separated in HOSTINGER_MAIL_TOKENS and/or one per HOSTINGER_MAIL_TOKENS_2.._6. */
   get hostingerMailTokens() {
-    return list('HOSTINGER_MAIL_TOKENS');
+    const names = ['HOSTINGER_MAIL_TOKENS', 'HOSTINGER_MAIL_TOKENS_2', 'HOSTINGER_MAIL_TOKENS_3', 'HOSTINGER_MAIL_TOKENS_4', 'HOSTINGER_MAIL_TOKENS_5', 'HOSTINGER_MAIL_TOKENS_6'];
+    return [...new Set(names.flatMap((n) => list(n)))];
   },
   get hostingerMailBaseUrl() {
     return (read('HOSTINGER_MAIL_BASE_URL') ?? 'https://api.mail.hostinger.com').replace(/\/+$/, '');
