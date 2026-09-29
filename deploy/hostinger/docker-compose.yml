@@ -9,6 +9,8 @@
 
 x-app: &app
   image: rks-outreach:latest
+  # Docker Manager runs "pull" then "up"; these images only exist once built from source.
+  pull_policy: build
   build:
     context: https://github.com/rohit-kumar-seo-repo/outreach.git#${GIT_REF:-main}
     dockerfile: Dockerfile
@@ -90,6 +92,7 @@ services:
 
   backup:
     image: rks-outreach-backup:latest
+    pull_policy: build
     build:
       context: https://github.com/rohit-kumar-seo-repo/outreach.git#${GIT_REF:-main}
       dockerfile: deploy/backup.Dockerfile
