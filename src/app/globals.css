@@ -3,12 +3,11 @@
 /* Rohit Kumar SEO Outreach — light workspace, dark navy navigation, blue accents,
    restrained teal/green status colors. */
 @theme {
-  /* Navigation ramp, built on the brand colour #b22222 (the "navy" names are kept to avoid churn). */
-  --color-navy-950: #7f1818;
-  --color-navy-900: #b22222;
-  --color-navy-800: #9c1e1e;
-  --color-navy-700: #871a1a;
-  --color-navy-300: #f7d6d6;
+  --color-navy-950: #0a1426;
+  --color-navy-900: #0f1d36;
+  --color-navy-800: #172a4b;
+  --color-navy-700: #22375e;
+  --color-navy-300: #9fb0cf;
   --color-canvas: #f4f6fa;
   --color-card: #ffffff;
   --color-line: #e3e7ef;
