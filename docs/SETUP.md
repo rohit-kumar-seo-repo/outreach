@@ -77,9 +77,11 @@ Each source is optional. Anything not connected shows "Not connected" on the das
    - Add one Hostinger Email API token per mail order (rohitkumarseo.tech, adssuspensionrecovery.com, rkdigitalmedia.in), or use `IMAP_ACCOUNTS_JSON`.
    - Inbox, Sent and Junk are read.
    - Messages are fetched without changing their read status.
+   - Replying from the inbox works for every mailbox a Hostinger Email API token covers; nothing else to set up. IMAP-only mailboxes stay read-only (the composer says so).
 4. **WhatsApp.** Set `WAHA_BASE_URL` and `WAHA_API_KEY`.
-   - Only chats with contacted leads are read.
-   - The dashboard never sends messages.
+   - Chats with contacted leads are read from WAHA; incoming messages also arrive through the "WAHA - Incoming Message Webhook" executions.
+   - Hidden numbers (WhatsApp privacy IDs) are resolved from the webhook data or WAHA's `/api/{session}/lids` endpoint.
+   - The dashboard never sends WhatsApp messages.
 5. **Alert emails.** Switched on 29 Sep 2026: the workflow is active and migration 004 ticked the setting. To set this up again from scratch:
    1. In n8n, open "Outreach Dashboard — Alerts". It was created **inactive**, with the bridge's Header Auth credential and the mailbox API credential of the Daily Outreach Summary already selected.
    2. Activate it.

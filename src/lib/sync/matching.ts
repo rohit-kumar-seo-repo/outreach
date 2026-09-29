@@ -6,6 +6,7 @@
 // Only reliable signals set lead_id; a domain-only match is stored as a suggestion and never counted.
 import { env } from '../env';
 import { q, tx } from '../db';
+import { classifyInternal } from './internal';
 import { recordSendAttempt } from './record';
 
 const FREE_MAIL = ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'hotmail.com', 'outlook.com', 'live.com', 'icloud.com', 'aol.com', 'rediffmail.com', 'proton.me', 'protonmail.com', 'zoho.com', 'gmx.com', 'mail.com', 'yandex.com'];
@@ -98,6 +99,8 @@ async function recordSentFolderOnlySends(): Promise<void> {
        join leads l on l.email_norm = m.counterpart
        join campaigns c on c.id = l.campaign_id and c.channel = 'email'
       where m.direction = 'outbound' and m.send_attempt_id is null and m.message_id is not null and m.sent_at is not null
+        and m.kind <> 'internal'
+        and not exists (select 1 from mail_replies r where r.mail_message_id = m.id)
         and (m.in_reply_to is null or exists (select 1 from mail_messages p where p.message_id = m.in_reply_to and p.direction = 'outbound'))
       group by m.id, mb.address, mb.domain, mb.id
       limit 5000`,
@@ -207,8 +210,38 @@ async function linkBounces(): Promise<void> {
   );
 }
 
+/**
+ * Replies sent from the dashboard: pair each with its Sent-folder copy (the API returns no Message-ID),
+ * confirm replies whose outcome was unknown, and put the copy in the reply's thread, lead and campaign.
+ */
+export async function linkDashboardReplies(): Promise<void> {
+  await q(
+    `with c as (
+       select distinct on (r.id) r.id as rid, m.id as mid, m.sent_at
+         from mail_replies r
+         join mail_messages m on m.mailbox_id = r.mailbox_id and m.direction = 'outbound' and m.to_addrs && r.to_addrs
+          and lower(coalesce(m.subject, '')) = lower(r.subject)
+          and m.sent_at between coalesce(r.sent_at, r.created_at) - interval '10 minutes' and coalesce(r.sent_at, r.created_at) + interval '2 hours'
+        where r.mail_message_id is null and r.status in ('sent', 'sending', 'unknown')
+          and not exists (select 1 from mail_replies r2 where r2.mail_message_id = m.id)
+        order by r.id, abs(extract(epoch from (m.sent_at - coalesce(r.sent_at, r.created_at)))))
+     update mail_replies r set mail_message_id = c.mid, sent_at = coalesce(r.sent_at, c.sent_at),
+            status = 'sent',
+            provider_status = case when r.status = 'sent' then r.provider_status else 'Confirmed by its copy in the Sent folder' end
+       from c where r.id = c.rid`,
+  );
+  await q(
+    `update mail_messages m set thread_key = r.thread_key, lead_id = coalesce(m.lead_id, r.lead_id), campaign_id = coalesce(m.campaign_id, r.campaign_id),
+            match_method = coalesce(m.match_method, 'dashboard_reply'), match_confidence = coalesce(m.match_confidence, 'high')
+       from mail_replies r
+      where r.mail_message_id = m.id and (m.thread_key is distinct from r.thread_key or m.match_method is null)`,
+  );
+}
+
 export async function runMatching(): Promise<void> {
+  await classifyInternal();
   await propagateThreads();
+  await linkDashboardReplies();
   await linkSentByMessageId();
   await linkSentByTime();
   await recordSentFolderOnlySends();

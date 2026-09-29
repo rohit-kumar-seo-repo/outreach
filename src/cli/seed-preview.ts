@@ -8,6 +8,7 @@ import { registry } from '../lib/registry';
 import { syncRegistry } from '../lib/registry/sync';
 import { evaluateAlerts } from '../lib/alerts';
 import { deriveLeads } from '../lib/sync/derive';
+import { classifyInternal } from '../lib/sync/internal';
 import { recordSendAttempt } from '../lib/sync/record';
 
 let seed = 42;
@@ -239,6 +240,38 @@ async function main() {
       [contacted[i].id, contacted[i].campaign_id, outcome, i, value, value ? 'INR' : null],
     );
   }
+  // Inbox samples: internal mail, a snoozed conversation, a reply sent from the dashboard, a hidden WhatsApp number.
+  const seoBox = (await q<{ id: number }>(`select id from mailboxes where address = 'seo@rohitkumarseo.tech'`))[0].id;
+  await q(
+    `insert into mail_messages (mailbox_id, folder, uid, message_id, direction, from_addr, from_name, to_addrs, counterpart, subject, sent_at, kind, unseen, thread_key, body_text, body_fetched_at)
+     values ($1,'INBOX.Sent',$2,'<digest@sample.invalid>','outbound','seo@rohitkumarseo.tech','Outreach Dispatcher','{owner@sample.invalid}','owner@sample.invalid',
+             'Daily Outreach Summary - SAMPLE (42 sent)', now() - interval '3 hours','message',false,'s:owner@sample.invalid|daily outreach summary','SAMPLE digest: 42 sent in the last 24h.', now()),
+            ($1,'INBOX',$3,'<test@sample.invalid>','inbound','harry@rkdigitalmedia.in','Harry','{seo@rohitkumarseo.tech}','harry@rkdigitalmedia.in',
+             'Test', now() - interval '2 hours','message',true,'s:harry@rkdigitalmedia.in|test','SAMPLE test message between our own mailboxes.', now())`,
+    [seoBox, uid++, uid++],
+  );
+  await classifyInternal();
+  const replyThreads = await q<{ thread_key: string; mailbox_id: number; from_addr: string; lead_id: number; campaign_id: number; id: number }>(
+    `select thread_key, mailbox_id, from_addr, lead_id, campaign_id, id from mail_messages where is_outreach_reply order by sent_at desc limit 3`,
+  );
+  if (replyThreads[1]) {
+    await q(`insert into inbox_threads (thread_key, snoozed_until, snoozed_at, updated_by) values ($1, now() + interval '1 day', now(), 'preview')`, [replyThreads[1].thread_key]);
+  }
+  if (replyThreads[2]) {
+    const r = replyThreads[2];
+    await q(
+      `insert into mail_replies (idempotency_key, thread_key, source_message_id, mailbox_id, from_addr, to_addrs, subject, body_text, body_hash, lead_id, campaign_id,
+         status, provider, provider_status, created_by, sent_at)
+       values ('preview-reply-1', $1, $2, $3, (select address from mailboxes where id = $3), $4, 'Re: SAMPLE', 'SAMPLE: Thanks! Does Thursday 4 pm IST work for a quick call?',
+               'preview', $5, $6, 'sent', 'hostinger_api', 'HTTP 204', 'preview', now() - interval '20 minutes')`,
+      [r.thread_key, r.id, r.mailbox_id, [r.from_addr], r.lead_id, r.campaign_id],
+    );
+  }
+  await q(
+    `insert into wa_messages (session, message_id, chat_id, from_me, body, sent_at, source) values
+       ('default', 'false_999000111222333@lid_SAMPLE1', '999000111222333@lid', false, 'SAMPLE: We''re unavailable right now, but will respond as soon as possible.', now() - interval '1 day', 'n8n_webhook')`,
+  );
+  await q(`insert into wa_contacts (chat_id, phone, name, source) values ('999000111222333@lid', null, 'Sample Clinic (SAMPLE)', 'webhook')`);
   await deriveLeads();
   await evaluateAlerts();
   console.log('Preview database seeded with SAMPLE data.');

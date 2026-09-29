@@ -5,7 +5,7 @@ import { listExecutions, listWorkflows, n8nConfigured } from './n8n-client';
 import { extractFromExecution, senderNodesIn, type N8nExecution, type RunData } from './n8n-extract';
 import { recordSendAttempt } from './record';
 import { finishRun, markSource, startRun } from './runs';
-import { recordWaMessage } from './wa-store';
+import { phoneFromJid, recordWaMessage } from './wa-store';
 
 const FINAL = new Set(['success', 'error', 'crashed', 'canceled']);
 // Stop paging back once this many already-final executions are seen in a row.
@@ -77,7 +77,18 @@ async function processWahaInbound(exec: N8nExecution, nodeName: string): Promise
       const id = String(payload.id ?? '');
       if (!chatId || !id || chatId.endsWith('@g.us') || chatId === 'status@broadcast') continue;
       const ts = Number(j.timestamp ?? payload.timestamp);
+      // WhatsApp may address the chat by a privacy ID (…@lid); the engine sends the real number alongside.
+      const data = (payload._data ?? {}) as Record<string, unknown>;
+      const key = (data.key ?? {}) as Record<string, unknown>;
+      const info = (data.Info ?? {}) as Record<string, unknown>;
+      const phone =
+        phoneFromJid(chatId) ??
+        [key.remoteJidAlt, key.senderPn, info.SenderAlt, info.RecipientAlt, info.ChatAlt, payload.fromAlt, payload.toAlt].map(phoneFromJid).find((x) => x) ??
+        null;
+      const contactName = fromMe ? null : [data.verifiedBizName, data.pushName, info.PushName, info.VerifiedName].find((x) => typeof x === 'string' && x.trim());
       await recordWaMessage({
+        phone,
+        contactName: typeof contactName === 'string' ? contactName : null,
         session: String(j.session ?? raw.session ?? 'unknown'),
         messageId: id,
         chatId,

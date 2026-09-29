@@ -1,13 +1,13 @@
 # Data sources
 
-The dashboard **pulls** data from the systems you already use. It never modifies your n8n workflows and never sends anything. `config/registry.json` describes every campaign, sheet, mailbox and n8n sender, and how its columns and statuses map to the dashboard.
+The dashboard **pulls** data from the systems you already use. It never modifies your n8n workflows. The only thing it sends is an email reply you write in the inbox (see SECURITY.md). `config/registry.json` describes every campaign, sheet, mailbox and n8n sender, and how its columns and statuses map to the dashboard.
 
 | Source | What it gives | How it is read | Setting |
 |---|---|---|---|
 | n8n executions | Exact send attempts (time, sender, recipient, API or SMTP result) for every tracked sender workflow | n8n public API, `includeData=true`, every 5 min. Per-workflow adapters in the registry. | `N8N_BASE_URL`, `N8N_API_KEY` |
 | n8n workflows | Which campaigns are active; untracked workflows that look like senders | n8n public API, every hour | same |
 | Sheets and data tables | Leads, statuses, schedules, and the send history the sheet records | "Outreach Dashboard — Data Bridge (read-only)" webhook in n8n, which uses n8n's own Google credential, every 15 min | `N8N_BRIDGE_URL`, `N8N_BRIDGE_KEY` |
-| Mailboxes | Sent-folder copies (verified sends and Message-IDs), replies, bounces, junk | Hostinger Email API (GET only) or IMAP (read-only), every 10 min | `HOSTINGER_MAIL_TOKENS` / `IMAP_ACCOUNTS_JSON` |
+| Mailboxes | Sent-folder copies (verified sends and Message-IDs), replies, bounces, junk | Hostinger Email API or IMAP (read-only), every 10 min. Bodies of recent conversation mail are prefetched without changing read flags. Replies are sent through the Hostinger Email API only. | `HOSTINGER_MAIL_TOKENS` / `IMAP_ACCOUNTS_JSON` |
 | WhatsApp | Sessions, chats with contacted leads, delivered/read ticks, replies | WAHA API, every 15 min | `WAHA_BASE_URL`, `WAHA_API_KEY` |
 | Push (optional) | Events from any workflow you choose to instrument | `POST /api/ingest/n8n` | `INGEST_KEY` |
 

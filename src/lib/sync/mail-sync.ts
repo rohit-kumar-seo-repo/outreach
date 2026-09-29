@@ -1,5 +1,6 @@
 import { env } from '../env';
 import { one, q } from '../db';
+import { prefetchBodies } from '../mail/body';
 import { recordIntegrationError, resolveIntegrationErrors } from '../errors';
 import { normalizeSubject } from '../normalize';
 import { classifyInbound, parseBounce } from './bounce';
@@ -122,6 +123,7 @@ async function syncOneMailbox(mailboxId: number, provider: MailProvider): Promis
     }
   }
   await parsePendingBounces(provider, mailboxId);
+  await prefetchBodies(provider, mailboxId);
   return written;
 }
 

@@ -5,7 +5,7 @@ import { q } from '../db';
 import { recordIntegrationError, resolveIntegrationErrors } from '../errors';
 import { fetchJson } from './http';
 import { finishRun, markSource, startRun } from './runs';
-import { recordWaMessage } from './wa-store';
+import { phoneFromJid, recordWaMessage, rememberContact } from './wa-store';
 
 interface WahaSession {
   name: string;
@@ -29,6 +29,54 @@ function headers(): Record<string, string> {
 
 export function wahaConfigured(): boolean {
   return !!env.wahaBaseUrl && !!env.wahaApiKey;
+}
+
+/**
+ * Chats WhatsApp addressed by a privacy ID (…@lid) whose number is still unknown: ask WAHA for the
+ * number (GET /api/{session}/lids/{lid}), and for the profile name of numbers without a lead.
+ * Best effort: a WAHA version without these endpoints just leaves the privacy ID in place.
+ */
+async function resolveHiddenNumbers(live: Set<string>): Promise<void> {
+  const lids = await q<{ chat_id: string; session: string }>(
+    `select distinct on (w.chat_id) w.chat_id, w.session from wa_messages w left join wa_contacts c on c.chat_id = w.chat_id
+      where w.chat_id like '%@lid' and (c.chat_id is null or (c.phone is null and c.updated_at < now() - interval '1 day'))
+      order by w.chat_id, w.sent_at desc limit 100`,
+  );
+  for (const r of lids) {
+    if (!live.has(r.session)) continue;
+    try {
+      const res = await fetchJson<{ lid?: string; pn?: string | null }>(
+        `${env.wahaBaseUrl}/api/${encodeURIComponent(r.session)}/lids/${encodeURIComponent(r.chat_id)}`,
+        { headers: headers(), retries: 0, timeoutMs: 10_000 },
+      );
+      await rememberContact(r.chat_id, phoneFromJid(res.pn), null, 'waha_lookup');
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 404 || status === 405) {
+        await recordIntegrationError('waha:lids', 'This WAHA version cannot look up hidden WhatsApp numbers; chats that arrived with a privacy ID keep it until the number appears in a webhook event.', {}, 'warning');
+        break;
+      }
+    }
+  }
+  const unnamed = await q<{ phone: string; session: string }>(
+    `select distinct on (replace(w.chat_id, '@c.us', '')) replace(w.chat_id, '@c.us', '') as phone, w.session
+       from wa_messages w
+      where w.chat_id like '%@c.us' and w.lead_id is null and not w.from_me
+        and not exists (select 1 from wa_contacts c where c.phone = replace(w.chat_id, '@c.us', '') and c.name is not null)
+      order by replace(w.chat_id, '@c.us', ''), w.sent_at desc limit 30`,
+  );
+  for (const r of unnamed) {
+    if (!live.has(r.session)) continue;
+    try {
+      const c = await fetchJson<{ name?: string | null; pushname?: string | null; shortName?: string | null }>(
+        `${env.wahaBaseUrl}/api/contacts?session=${encodeURIComponent(r.session)}&contactId=${encodeURIComponent(`${r.phone}@c.us`)}`,
+        { headers: headers(), retries: 0, timeoutMs: 10_000 },
+      );
+      await rememberContact(`${r.phone}@c.us`, r.phone, c.name || c.pushname || c.shortName || null, 'waha_lookup');
+    } catch {
+      /* optional */
+    }
+  }
 }
 
 export async function syncWaha(): Promise<void> {
@@ -83,6 +131,7 @@ export async function syncWaha(): Promise<void> {
         await recordIntegrationError('waha', `Reading chat history failed for one chat in session ${session}: ${(err as Error).message}`, {}, 'warning');
       }
     }
+    await resolveHiddenNumbers(live);
     // Copy delivery acks onto our send attempts (WAHA ack 2 = delivered to device, 3 = read).
     await q(
       `update send_attempts sa set wa_ack = greatest(sa.wa_ack, w.ack), updated_at = now()

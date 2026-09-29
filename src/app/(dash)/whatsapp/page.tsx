@@ -2,10 +2,21 @@ import Link from 'next/link';
 import { Card, EmptyState, fmt, Notice, PageHeader, Pill, RateCell } from '@/components/ui';
 import { one } from '@/lib/db';
 import { campaignStats } from '@/lib/metrics/campaigns';
-import { waChat, waConversations, waSessions } from '@/lib/metrics/whatsapp';
+import { waChat, waConversations, waSessions, type WaConversation } from '@/lib/metrics/whatsapp';
+import { chatIdToPhone, formatPhone } from '@/lib/normalize';
 import { formatDateTime, relativeTime } from '@/lib/time';
 
 export const metadata = { title: 'WhatsApp' };
+
+/** Business name from the lead sheet, else their WhatsApp profile name, else the number. */
+function chatTitle(c: WaConversation): string {
+  return c.leadName || c.contactName || formatPhone(c.phone) || 'Unknown business (number hidden)';
+}
+
+function chatNumber(c: WaConversation): string {
+  if (c.phone) return formatPhone(c.phone) ?? `+${c.phone}`;
+  return 'Number hidden by WhatsApp (privacy ID)';
+}
 
 export default async function WhatsAppPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
@@ -16,7 +27,9 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
     one<{ last_status: string | null; last_error: string | null; last_success_at: Date | null }>(`select last_status, last_error, last_success_at from sources where key = 'waha'`),
   ]);
   const chat = sp.chat ? await waChat(sp.chat) : [];
+  const open = sp.chat ? conversations.find((c) => c.chatId === sp.chat) : undefined;
   const wahaOk = src?.last_status === 'ok';
+  const hidden = conversations.filter((c) => c.hiddenNumber).length;
   const anyData = stats.some((s) => s.contacted > 0 || s.leadsLoaded > 0) || conversations.length > 0;
 
   return (
@@ -68,7 +81,7 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
                 {sessions.map((s) => (
                   <li key={s.name} className="flex items-center justify-between">
                     <span>
-                      {s.name} {s.phone && <span className="text-ink-3">· +{s.phone}</span>}
+                      {s.name} {s.phone && <span className="text-ink-3">· {formatPhone(s.phone)}</span>}
                     </span>
                     <Pill tone={s.status === 'WORKING' ? 'good' : 'critical'}>{s.status ?? 'unknown'}</Pill>
                   </li>
@@ -76,7 +89,13 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
               </ul>
             )}
           </Card>
-          <Card title="Conversations" subtitle="Chats with outreach leads only (personal chats are never synced)" pad={false}>
+          <Card title="Conversations" subtitle="Chats on your outreach WhatsApp numbers: lead chats from WAHA, plus incoming messages from the webhook" pad={false}>
+            {hidden > 0 && (
+              <p className="border-b border-line bg-warn-50 px-4 py-2 text-[12px] text-warn">
+                {hidden} chat{hidden === 1 ? '' : 's'} arrived with a WhatsApp privacy ID instead of a number. The number is filled in automatically from the next message
+                or from WAHA.
+              </p>
+            )}
             {conversations.length === 0 ? (
               <EmptyState title="No conversations recorded" />
             ) : (
@@ -85,16 +104,18 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
                   <li key={`${c.session}:${c.chatId}`}>
                     <Link href={`/whatsapp?chat=${encodeURIComponent(c.chatId)}`} className={`block px-4 py-2.5 hover:bg-slate-50 ${sp.chat === c.chatId ? 'bg-brand-50' : ''}`}>
                       <div className="flex justify-between gap-2 text-[13px]">
-                        <span className="truncate font-medium">{c.leadName ?? `+${c.chatId.replace('@c.us', '')}`}</span>
-                        <span className="text-[11px] text-ink-3">{relativeTime(c.lastAt)}</span>
+                        <span className="truncate font-medium">{chatTitle(c)}</span>
+                        <span className="shrink-0 text-[11px] text-ink-3">{relativeTime(c.lastAt)}</span>
                       </div>
+                      <div className="truncate text-[12px] text-ink-3">{chatNumber(c)}</div>
                       <div className="truncate text-[12px] text-ink-2">
-                        {c.lastFromMe ? 'You: ' : ''}
+                        {c.lastFromMe ? 'You: ' : c.lastIsAuto ? 'Auto-reply: ' : ''}
                         {c.lastBody ?? '(media)'}
                       </div>
-                      <div className="mt-0.5 flex gap-1">
-                        {c.inbound > 0 && <Pill tone="good">{c.inbound} inbound</Pill>}
-                        {c.campaignName && <Pill>{c.campaignName}</Pill>}
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        {c.inbound > 0 && <Pill tone="good">{c.inbound} repl{c.inbound === 1 ? 'y' : 'ies'}</Pill>}
+                        {c.autoReplies > 0 && <Pill title="Automatic greeting or away message from their WhatsApp Business account. Not counted as a reply.">{c.autoReplies} auto-reply</Pill>}
+                        {c.campaignName ? <Pill tone="brand">{c.campaignName}</Pill> : <Pill tone="warn">No matching lead</Pill>}
                       </div>
                     </Link>
                   </li>
@@ -103,7 +124,33 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
             )}
           </Card>
         </div>
-        <Card title={sp.chat ? `+${sp.chat.replace('@c.us', '')}` : 'Conversation'} pad={false}>
+        <Card
+          title={open ? chatTitle(open) : sp.chat ? (formatPhone(chatIdToPhone(sp.chat)) ?? 'Conversation') : 'Conversation'}
+          subtitle={
+            open ? (
+              <>
+                {chatNumber(open)}
+                {open.leadId && (
+                  <>
+                    {' · '}
+                    <Link href={`/leads/${open.leadId}`} className="link">
+                      Lead
+                    </Link>
+                    {open.campaignName ? ` in ${open.campaignName}` : ''}
+                  </>
+                )}
+              </>
+            ) : undefined
+          }
+          actions={
+            open?.phone ? (
+              <a href={`https://wa.me/${open.phone}`} target="_blank" rel="noreferrer noopener" className="btn btn-sm">
+                Open in WhatsApp
+              </a>
+            ) : undefined
+          }
+          pad={false}
+        >
           {chat.length === 0 ? (
             <EmptyState title="Select a conversation" />
           ) : (
@@ -114,6 +161,7 @@ export default async function WhatsAppPage({ searchParams }: { searchParams: Pro
                   <div className="mt-1 text-[11px] text-ink-3">
                     {formatDateTime(m.sentAt)} · {m.session}
                     {m.fromMe && m.ack !== null ? ` · ${['pending', 'sent', 'delivered', 'read', 'played'][m.ack] ?? m.ack}` : ''}
+                    {m.isAuto ? ' · automatic reply, not counted' : ''}
                   </div>
                 </li>
               ))}

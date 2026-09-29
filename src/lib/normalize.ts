@@ -53,6 +53,17 @@ export function chatIdToPhone(chatId: string): string {
   return chatId.replace(/@.*$/, '');
 }
 
+/** International digits → readable number: +91 98715 30594, +971 50 123 4567, +1 415 555 0132, +44 20 7946 0958. */
+export function formatPhone(digits: string | null | undefined): string | null {
+  const d = digitsOnly(digits);
+  if (d.length < 7) return null;
+  if (d.startsWith('91') && d.length === 12) return `+91 ${d.slice(2, 7)} ${d.slice(7)}`;
+  if (d.startsWith('971') && d.length === 12) return `+971 ${d.slice(3, 5)} ${d.slice(5, 8)} ${d.slice(8)}`;
+  if (d.startsWith('1') && d.length === 11) return `+1 ${d.slice(1, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  if (d.startsWith('44') && d.length === 12) return `+44 ${d.slice(2, 4)} ${d.slice(4, 8)} ${d.slice(8)}`;
+  return `+${d}`;
+}
+
 export function normalizeMessageId(value: unknown): string | null {
   const s = String(value ?? '').trim();
   if (!s) return null;

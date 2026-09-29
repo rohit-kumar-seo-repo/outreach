@@ -12,7 +12,7 @@
   - Settings → "Sign out everywhere" revokes all sessions.
 - **Login throttling.** 5 failures per email or 10 per IP in 15 minutes blocks further attempts. Failed logins take about the same time whether or not the email exists.
 - **Server actions** check the request origin against `PUBLIC_URL`.
-- **Audit log.** Every data export and every manual change is recorded: assignments, sentiment, suppressions, notes, business outcomes, sending limits and alert settings.
+- **Audit log.** Every data export and every manual change is recorded: replies sent, assignments, sentiment, suppressions, snoozes, read/unread, notes, business outcomes, sending limits and alert settings.
 - **Security headers.** Strict CSP, HSTS, `frame-ancestors 'none'`, `noindex`. `robots.txt` disallows everything.
 
 ## Secrets
@@ -26,13 +26,20 @@
 
 ## Mail and WhatsApp safety
 
-- **The dashboard never sends email or WhatsApp messages.** All sending stays in your approved n8n workflows. Alert emails, if you turn them on, are sent by the n8n workflow "Outreach Dashboard — Alerts", which you activate yourself, and only to you.
+- **The only email the dashboard sends is a reply you write and click Send on in the inbox.** Outreach, follow-ups and WhatsApp messages stay in your approved n8n workflows. There is no bulk, scheduled or automatic sending. Alert emails come from the n8n workflow "Outreach Dashboard — Alerts".
+- **Reply safety** (`src/lib/mail/reply.ts`):
+  - Sent through the Hostinger Email API with the server-side token; the browser never sees a credential.
+  - The sender must be a connected mailbox (Hostinger API, last sync OK) that holds a copy of the conversation, so the reply stays in the thread. Other mailboxes are listed but disabled, with the reason.
+  - At most 5 recipients, plain text, 20,000 characters, no attachments. Hard-bounced addresses are blocked.
+  - Every submit carries a one-time key: a double click or a resubmitted form returns the first result instead of sending again. The same text to the same conversation is refused for 10 minutes.
+  - The send is never retried automatically. A timeout is recorded as "not confirmed" and confirmed later from the Sent-folder copy.
+  - Every attempt (sent, refused or unconfirmed) is stored in `mail_replies` and written to the audit log.
 - **Limits and alerts never change sending.** They do not pause workflows, edit sheets or stop follow-ups in n8n.
-- **Mailbox access is read-only.**
+- **Mailbox access is otherwise read-only.**
   - IMAP uses `EXAMINE` and `BODY.PEEK`.
-  - The Hostinger Email API is only called with GET.
-  - Messages are never moved, deleted or marked read.
-  - Hostinger's `/text` endpoint would mark a message as read, so the dashboard never calls it. It reads the raw source instead, and only when you open a message.
+  - The Hostinger Email API is read with GET. The only writes are sending a reply (the API also flags the answered message `\Answered`) and, if reading a body ever marks an unread message read, putting the unread flag back.
+  - Messages are never moved or deleted. Read/unread and snooze in the inbox are dashboard-only.
+  - Hostinger's `/text` endpoint marks messages read, so the dashboard never calls it. It reads the raw source instead and checks the flag afterwards; if restoring ever fails, unread messages are only loaded after a warning.
 - **Email bodies are shown in a sandboxed iframe.** Scripts, forms and remote images are blocked, so opening a message cannot trigger a tracking pixel.
 
 ## Findings to act on

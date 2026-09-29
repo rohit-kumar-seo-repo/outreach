@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { assertSameOrigin, requireSession, revokeAllSessions } from '@/lib/auth/session';
 import { one, q, tx } from '@/lib/db';
 import { digitsOnly, normalizeEmail } from '@/lib/normalize';
-import { providerFor } from '@/lib/sync/mail-sync';
 import { deriveLeads } from '@/lib/sync/derive';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts, type AlertSettings } from '@/lib/alerts';
 import { localDate } from '@/lib/time';
@@ -99,30 +98,6 @@ export async function setThreadFollowup(form: FormData): Promise<void> {
   });
   await audit(actor, clear ? 'clear_followup' : 'flag_followup', thread, { due });
   await deriveLeads();
-  revalidatePath('/inbox');
-}
-
-/** Loads a message body from the mailbox. On the Hostinger Email API this marks the message as read. */
-export async function loadBody(form: FormData): Promise<void> {
-  await guard();
-  const id = Number(form.get('messageId'));
-  const row = await one<{ address: string; folder: string; uid: number }>(
-    `select mb.address, m.folder, m.uid from mail_messages m join mailboxes mb on mb.id = m.mailbox_id where m.id = $1`,
-    [id],
-  );
-  if (!row) return;
-  const provider = await providerFor(row.address);
-  if (!provider) throw new Error('This mailbox is not connected, so the message body cannot be loaded.');
-  try {
-    const body = await provider.fetchBody(row.folder, row.uid);
-    await q(`update mail_messages set body_text = $2, body_html = $3, body_fetched_at = now() where id = $1`, [
-      id,
-      body.text.slice(0, 200_000),
-      body.html.slice(0, 500_000),
-    ]);
-  } finally {
-    await provider.close();
-  }
   revalidatePath('/inbox');
 }
 

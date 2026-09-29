@@ -4,7 +4,7 @@ import { simpleParser } from 'mailparser';
 import { env } from '../env';
 import { normalizeEmail, normalizeMessageId } from '../normalize';
 import { fetchJson } from './http';
-import type { FolderInfo, HeaderMsg, MailProvider } from './mail-types';
+import type { FolderInfo, HeaderMsg, MailProvider, OutgoingReply, SendOutcome } from './mail-types';
 
 interface ApiAddress {
   name: string;
@@ -156,6 +156,58 @@ export class HostingerProvider implements MailProvider {
       }
     }
     return body;
+  }
+
+  async isUnseen(folder: string, uid: number): Promise<boolean> {
+    const res = await this.get<{ data: ApiMessage }>(`/folders/${encodeURIComponent(folder)}/messages/${uid}`);
+    return !!res.data.unseen;
+  }
+
+  /** Only used to put back an unread flag that reading a message removed. */
+  async markUnseen(folder: string, uid: number): Promise<void> {
+    await fetchJson(this.url(`/folders/${encodeURIComponent(folder)}/messages/${uid}`), {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${this.ref.token}`, accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ removeFlags: ['\\Seen'] }),
+      retries: 0,
+    });
+  }
+
+  /**
+   * One POST, never retried: a retry after a timeout could send the reply twice. The API threads the
+   * reply (In-Reply-To/References from the answered message) and saves a copy to INBOX.Sent.
+   */
+  async sendReply(msg: OutgoingReply): Promise<SendOutcome> {
+    const payload: Record<string, unknown> = {
+      to: msg.to,
+      subject: msg.subject,
+      text: msg.text,
+      inReplyTo: { folder: msg.inReplyTo.folder, uid: msg.inReplyTo.uid },
+    };
+    if (msg.cc.length) payload.cc = msg.cc;
+    if (msg.displayName) payload.displayName = msg.displayName;
+    let res: Response;
+    try {
+      res = await fetch(this.url('/send'), {
+        method: 'POST',
+        headers: { authorization: `Bearer ${this.ref.token}`, accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(45_000),
+      });
+    } catch (err) {
+      return { result: 'unknown', status: 'No response', error: `No response from the Hostinger Email API (${(err as Error).name === 'TimeoutError' ? 'timed out' : (err as Error).message}).` };
+    }
+    const body = await res.text().catch(() => '');
+    if (res.ok) return { result: 'sent', status: `HTTP ${res.status}`, error: null };
+    let detail = body.slice(0, 300);
+    try {
+      const j = JSON.parse(body) as { error?: string; code?: string; params?: unknown };
+      detail = [j.code, j.error, j.params && Object.keys(j.params).length ? JSON.stringify(j.params) : ''].filter(Boolean).join(' ').slice(0, 300);
+    } catch {
+      /* not JSON */
+    }
+    // 5xx/504 mean the API may have sent it anyway; 4xx means it was refused.
+    return { result: res.status >= 500 ? 'unknown' : 'failed', status: `HTTP ${res.status}`, error: detail || `HTTP ${res.status}` };
   }
 
   async close(): Promise<void> {}

@@ -163,26 +163,52 @@ The Data coverage page marks every campaign-day in the last 45 days with one of 
 
 Cohort mode ("leads first contacted in the date range") only counts sends linked to a lead.
 
+## Inbox
+
+The inbox groups mail into conversations (by In-Reply-To/References, else by address and subject) across every synced mailbox. The domain and mailbox selectors limit every view and count.
+
+| View | Shows | Count in the menu |
+|---|---|---|
+| Needs reply (default) | The latest human message came from them; it is an outreach conversation (matched to a lead, a reply to mail you sent, or a likely match); you have not answered it since (inbox or webmail); not marked "No reply needed", not snoozed, not marked "Not outreach"; not spam | All such conversations |
+| Inbox | Conversations with mail received outside Spam/Trash, not snoozed | Unread |
+| Sent | Conversations with mail you sent | — |
+| Snoozed | Hidden until the chosen time, or until they write again | All |
+| Bounces | Conversations containing a bounce report, with the failed recipient and campaign | Last 30 days |
+| Spam | Anything in Spam/Junk folders | Unread |
+| Unmatched | Human mail not linked to a lead | Last 30 days |
+| Internal / automation | Reports, alerts and tests (see below) | Unread |
+
+- **New reply** = needs reply, from a lead, unread. **Unmatched** = human mail with no lead; link it or mark it "Not outreach".
+- **Unread** is kept by the dashboard: opening a conversation marks it read here, and "Mark unread" undoes that. It starts from the mailbox's own flag, which the dashboard never changes.
+- **Internal / automation** mail is labelled automatically: anything exchanged with your own mailboxes or domains, with `ADMIN_EMAIL`, or with whoever receives your automated reports; subjects like "Daily Outreach Summary", "[Outreach alert]", "Test". It never counts as a reply, and sends to those addresses never count as outreach sends.
+- **Replying** sends from the mailbox that received the conversation by default. After a reply, the conversation leaves Needs reply and the lead's status becomes "You replied". Follow-up dates stop as soon as a lead replies; the dashboard never schedules or sends follow-ups (your n8n sequences decide that from their sheets).
+
+## WhatsApp numbers and replies
+
+- WhatsApp sometimes addresses a chat by a privacy ID (`…@lid`) instead of the number. The dashboard takes the real number from the same webhook event (`remoteJidAlt`) or asks WAHA, stores the chat under the number, and links it to the lead with that number. Chats show the business name from the lead sheet (or their WhatsApp profile name) and the number, e.g. +91 98715 30594.
+- Automatic WhatsApp Business messages are not replies: away messages ("we're unavailable right now…") always, and greetings ("Thank you for contacting…", "Welcome to…") when they arrive within 3 minutes of your message. They are shown as auto-replies and left out of reply rates.
+
 ## Lead status
 
 Each lead's status is derived in this priority order (`src/lib/sync/derive.ts`):
 
 1. Unsubscribed / suppressed
 2. Bounced (a mailbox bounce, or the sheet says BOUNCED)
-3. Positive reply
-4. Not interested
-5. Replied
-6. Duplicate (an earlier row has the same address)
-7. Follow-up due
-8. Completed (the campaign's `maxSteps` has been reached, or the sheet says complete)
-9. Email sent
-10. Failed
-11. Invalid address
-12. Excluded (e.g. "Call list only", "Invalid email – excluded")
-13. Queued
-14. Awaiting approval
-15. Ready
-16. Needs draft
+3. Not interested
+4. You replied: you answered their latest reply (from the inbox or from webmail)
+5. Positive reply
+6. Replied (waiting for your answer)
+7. Duplicate (an earlier row has the same address)
+8. Follow-up due
+9. Completed (the campaign's `maxSteps` has been reached, or the sheet says complete)
+10. Email sent
+11. Failed
+12. Invalid address
+13. Excluded (e.g. "Call list only", "Invalid email – excluded")
+14. Queued
+15. Awaiting approval
+16. Ready
+17. Needs draft
 
 Every status can be traced to an event or to a sheet value.
 

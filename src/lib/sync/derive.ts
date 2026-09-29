@@ -2,6 +2,7 @@
 import { q } from '../db';
 import { registry } from '../registry';
 import { finishRun, startRun } from './runs';
+import { reconcileWhatsApp } from './wa-store';
 
 export const LEAD_STATUSES = [
   'ready',
@@ -11,6 +12,7 @@ export const LEAD_STATUSES = [
   'sent',
   'followup_due',
   'replied',
+  'in_conversation',
   'positive',
   'not_interested',
   'bounced',
@@ -27,6 +29,9 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 export async function deriveLeads(): Promise<void> {
   const runId = await startRun('derive');
   try {
+    // 0. WhatsApp chats: real numbers for privacy-ID chats, lead links, automatic greetings.
+    await reconcileWhatsApp();
+
     // 1. Duplicates inside a campaign: same email (email campaigns) or same WhatsApp chat.
     //    The row that was actually contacted (or the earliest row) stays primary.
     await q(
@@ -50,7 +55,7 @@ export async function deriveLeads(): Promise<void> {
                 bool_or(result = 'failed') as failed,
                 min(occurred_at) filter (where result = 'accepted') as first_at,
                 max(occurred_at) filter (where result = 'accepted') as last_at
-           from send_attempts where lead_id is not null group by lead_id, step),
+           from send_attempts where lead_id is not null and not is_internal group by lead_id, step),
        agg as (
          select lead_id,
                 count(*) filter (where accepted)::int as sends,
@@ -100,6 +105,24 @@ export async function deriveLeads(): Promise<void> {
                                 coalesce((v.supp_reason is not null and v.supp_reason <> 'hard_bounce') or v.sentiment = 'unsubscribe', false))`,
     );
 
+    // 3a. Our latest reply after the lead replied: sent from the dashboard, or typed in webmail
+    //     (an outbound message in the lead's reply thread that is not an outreach send).
+    await q(
+      `with resp as (
+         select lead_id, max(at) as at from (
+           select r.lead_id, coalesce(r.sent_at, r.created_at) as at from mail_replies r
+            where r.lead_id is not null and r.status in ('sent', 'unknown')
+           union all
+           select i.lead_id, o.sent_at from mail_messages i
+             join mail_messages o on o.thread_key = i.thread_key and o.direction = 'outbound' and o.send_attempt_id is null
+              and o.kind <> 'internal' and o.sent_at > i.sent_at
+            where i.is_outreach_reply and i.lead_id is not null) x
+          group by lead_id)
+       update leads l set last_response_at = x.at
+         from (select l2.id, resp.at from leads l2 left join resp on resp.lead_id = l2.id) x
+        where l.id = x.id and l.last_response_at is distinct from x.at`,
+    );
+
     // 3b. Latest recorded business outcome (qualified / meeting booked / won / lost).
     await q(
       `with latest as (
@@ -144,8 +167,9 @@ export async function deriveLeads(): Promise<void> {
          from (select l.id, case
                  when l.suppressed then 'unsubscribed'
                  when l.bounced_at is not null or l.sheet_state = 'bounced' then 'bounced'
-                 when l.reply_sentiment = 'positive' then 'positive'
                  when l.reply_sentiment = 'not_interested' then 'not_interested'
+                 when l.last_reply_at is not null and l.last_response_at >= l.last_reply_at then 'in_conversation'
+                 when l.reply_sentiment = 'positive' then 'positive'
                  when l.last_reply_at is not null or (l.sheet_state = 'replied' and l.sends_accepted > 0) then 'replied'
                  when l.is_duplicate and l.sends_accepted = 0 then 'duplicate'
                  when l.sends_accepted > 0 and l.next_followup_at is not null and l.next_followup_at <= now() then 'followup_due'

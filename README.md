@@ -9,14 +9,14 @@ It reads data from the tools already in place:
 - the Hostinger mailboxes
 - WAHA
 
-It never sends messages itself. Anything that isn't connected is shown as "Not connected" or "No data yet", never as a made-up number.
+It never sends outreach itself; the only email it sends is a reply you write in the inbox. Anything that isn't connected is shown as "Not connected" or "No data yet", never as a made-up number.
 
 | Page | What it shows |
 |---|---|
 | Overview | Today's KPIs, a delivery funnel (scheduled → attempted → accepted → bounced / confirmed / unverified), a 30-day chart with filters, and sync health |
 | Alerts | Failed n8n runs, sync failures, overdue follow-ups, bounce spikes and daily-limit breaches. Optional email through n8n. |
 | Campaigns | Per-campaign sends, follow-ups by step, replies, bounces, failures, and business results (qualified, meetings, won). Every rate shows its denominator. |
-| Inbox | All synced mail folders, full threads linked to leads and campaigns, "Unmatched" messages with manual assignment, and follow-up flags |
+| Inbox | Three-pane triage across every mailbox: Needs reply first, domain/mailbox selectors, filters, lead and campaign context, inline replies from the receiving mailbox, snooze, read/unread, bounces, unmatched and internal mail |
 | Leads | Status, due and overdue follow-ups, full send history, duplicate detection, suppressions, and recorded outcomes |
 | Sending volume | Daily sends per mailbox and per domain, with limits you set |
 | Data coverage | Which days' numbers are complete, approximate or unknown, per campaign |
