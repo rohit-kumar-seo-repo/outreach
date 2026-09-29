@@ -76,8 +76,8 @@ services:
       - traefik.http.routers.rks-outreach.entrypoints=websecure
       - traefik.http.routers.rks-outreach.tls.certresolver=letsencrypt
       - traefik.http.services.rks-outreach.loadbalancer.server.port=3000
-    ports:
-      - "3000"
+    # No published port: Traefik (host network) reaches the container directly, so the app is
+    # only reachable over HTTPS through Traefik.
 
   worker:
     <<: *app
