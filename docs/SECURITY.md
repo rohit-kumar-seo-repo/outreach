@@ -21,7 +21,7 @@
 - **The Integrations page** shows only whether a setting is present (yes/no), never its value.
 - **Integration errors** are redacted before they are stored or shown: bearer tokens, API keys, passwords and key/token query parameters are masked.
 - **The n8n bridge** is protected by a header key (`X-Outreach-Bridge-Key`) and only reads sheets.
-- **Alert notifications** are off by default. When turned on, the worker posts alert titles and details to the n8n `outreach-dashboard-alerts` webhook with the same header key. Error messages in alerts are redacted like integration errors.
+- **Alert notifications** are on (switched on at the owner's request, migration 004) and can be switched off on the Alerts page. The worker posts alert titles and details to the n8n `outreach-dashboard-alerts` webhook with the same header key. Error messages in alerts are redacted like integration errors.
 - **The ingest endpoint** (`/api/ingest/n8n`) is disabled unless `INGEST_KEY` is set, and it rejects any request without that key.
 
 ## Mail and WhatsApp safety

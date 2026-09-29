@@ -146,7 +146,7 @@ The bounce thresholds and the follow-up grace period can be changed on the Alert
 
 **Optional alert emails.** When "Send new alerts to n8n" is ticked, each new alert is posted once to the n8n webhook `outreach-dashboard-alerts`. The request carries the same header key as the data bridge. An alert is posted again if it escalates to critical.
 
-The n8n workflow "Outreach Dashboard — Alerts" emails one summary per batch to the same address as the Daily Outreach Summary, through the same mailbox API credential. The workflow was created **inactive**.
+The n8n workflow "Outreach Dashboard — Alerts" emails one summary per batch to the same address as the Daily Outreach Summary, through the same mailbox API credential. The workflow is active and the setting is on (since 29 Sep 2026, migration 004). Untick the setting or deactivate the workflow to stop the emails.
 
 ## Data coverage
 

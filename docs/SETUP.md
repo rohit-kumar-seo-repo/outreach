@@ -80,7 +80,7 @@ Each source is optional. Anything not connected shows "Not connected" on the das
 4. **WhatsApp.** Set `WAHA_BASE_URL` and `WAHA_API_KEY`.
    - Only chats with contacted leads are read.
    - The dashboard never sends messages.
-5. **Alert emails (optional).** Alerts always show on the dashboard. To also get them by email:
+5. **Alert emails.** Switched on 29 Sep 2026: the workflow is active and migration 004 ticked the setting. To set this up again from scratch:
    1. In n8n, open "Outreach Dashboard — Alerts". It was created **inactive**, with the bridge's Header Auth credential and the mailbox API credential of the Daily Outreach Summary already selected.
    2. Activate it.
    3. On the dashboard's **Alerts** page, tick "Send new alerts to n8n" and save.
