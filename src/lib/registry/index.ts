@@ -112,6 +112,8 @@ const campaign = z.object({
 const registrySchema = z.object({
   owner: z.object({ internalDomains: z.array(z.string()), internalAddresses: z.array(z.string()) }),
   mailboxes: z.array(z.object({ address: z.string(), via: z.enum(['hostinger_api', 'smtp']) })),
+  /** Addresses that no longer exist: never listed as mailboxes; old sends from them keep the sender text only. */
+  retiredMailboxes: z.array(z.string()).default([]),
   campaigns: z.array(campaign),
   sources: z.array(source),
   workflows: z.array(workflow),

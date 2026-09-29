@@ -49,26 +49,6 @@
       "via": "smtp"
     },
     {
-      "address": "harry@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "jacob@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "larry@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "paul@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "peter@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
       "address": "sales@rkdigitalmedia.in",
       "via": "smtp"
     },
@@ -88,6 +68,13 @@
       "address": "support@rkdigitalmedia.in",
       "via": "smtp"
     }
+  ],
+  "retiredMailboxes": [
+    "harry@rkdigitalmedia.in",
+    "jacob@rkdigitalmedia.in",
+    "larry@rkdigitalmedia.in",
+    "paul@rkdigitalmedia.in",
+    "peter@rkdigitalmedia.in"
   ],
   "campaigns": [
     {

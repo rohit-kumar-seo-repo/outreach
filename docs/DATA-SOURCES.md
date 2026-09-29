@@ -46,7 +46,7 @@ The **Data coverage** page shows the result per campaign and day: complete, appr
 2. **RKD Follow-up Engine generates nothing.**
    - It needs a send date per row. The sheet's `Date` column is empty and there is no `Date Sent` column.
    - Its last 6 daily runs produced 0 follow-ups.
-3. **RKD sender addresses have no mailboxes.** harry@, jacob@, larry@, paul@ and peter@rkdigitalmedia.in don't exist in the Hostinger mail order, so replies to them can't be received or tracked.
+3. **RKD sender addresses have no mailboxes.** harry@, jacob@, larry@, paul@ and peter@rkdigitalmedia.in don't exist in the Hostinger mail order, so replies to them can't be received or tracked. They are listed under `retiredMailboxes` in the registry (29 Sep 2026): the dashboard no longer shows them as mailboxes anywhere, and any send that names them keeps only the sender address. The n8n "RKD — Follow-up Engine" workflow still has "Send from Harry/Jacob/Larry/Paul/Peter" nodes.
 4. **The Aesthetic Clinic sheet belongs to another Google account and blocks export.** The bridge can still read it through n8n's credential. Direct downloads are refused.
 5. **37 SEO Visibility rows are "Approved" without `ScheduledSendISO`.** The dispatcher skips rows without a send time, so they will never be sent.
 6. **Two SEO follow-ups failed** with `404 route api/v1/mailboxes/send could not be found`.

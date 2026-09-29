@@ -61,6 +61,7 @@ export async function campaignId(slug: string | null, client: Queryable = pool()
 export async function mailboxId(address: string | null | undefined, client: Queryable = pool()): Promise<number | null> {
   const a = normalizeEmail(address);
   if (!a || !a.includes('@')) return null;
+  if (registry().retiredMailboxes.some((r) => r.toLowerCase() === a)) return null; // keep the sender text, no mailbox row
   const k = `m:${a}`;
   if (idCache.has(k)) return idCache.get(k)!;
   const row = await one<{ id: number }>(

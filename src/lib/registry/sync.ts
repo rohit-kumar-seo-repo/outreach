@@ -50,5 +50,13 @@ export async function syncRegistry(): Promise<void> {
         c,
       );
     }
+    // Retired addresses disappear from every mailbox list, filter and status panel. Their send
+    // history stays (send_attempts keep the sender address; mailbox_id is cleared by the FK).
+    const retired = reg.retiredMailboxes.map((a) => a.toLowerCase());
+    if (retired.length) {
+      await q(`delete from send_limits where scope = 'mailbox' and key = any($1)`, [retired], c);
+      await q(`update alerts set resolved_at = now() where resolved_at is null and context->>'mailbox' = any($1)`, [retired], c);
+      await q(`delete from mailboxes where address = any($1) and not exists (select 1 from mail_replies r where r.mailbox_id = mailboxes.id)`, [retired], c);
+    }
   });
 }

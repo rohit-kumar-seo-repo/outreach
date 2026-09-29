@@ -187,6 +187,30 @@ d('inbox, replies and WhatsApp numbers', () => {
     expect((await listThreads({ view: 'snoozed' })).rows[0]?.threadKey).toBe(thread);
   });
 
+  it('keeps retired mailboxes out of every mailbox list, even when an old send names them', async () => {
+    const { q, one } = db;
+    const { recordSendAttempt, clearIdCache } = await import('@/lib/sync/record');
+    const { syncRegistry } = await import('@/lib/registry/sync');
+    await q(`insert into mailboxes (address, domain) values ('harry@rkdigitalmedia.in', 'rkdigitalmedia.in') on conflict do nothing`);
+    await syncRegistry();
+    expect((await one<{ n: number }>(`select count(*)::int as n from mailboxes where address like any(array['harry@%','jacob@%','larry@%','paul@%','peter@%'])`))!.n).toBe(0);
+    clearIdCache();
+    await recordSendAttempt({
+      idempotencyKey: 'n8n:rkd:old',
+      channel: 'email',
+      campaignSlug: 'aesthetic-clinics-rkd',
+      sender: 'harry@rkdigitalmedia.in',
+      recipient: 'c@clinic.example',
+      step: 1,
+      result: 'accepted',
+      source: 'n8n_execution',
+      occurredAt: new Date('2026-08-01T10:00:00Z'),
+      timeQuality: 'exact',
+    });
+    expect(await one(`select sender, mailbox_id from send_attempts where idempotency_key = 'n8n:rkd:old'`)).toEqual({ sender: 'harry@rkdigitalmedia.in', mailbox_id: null });
+    expect((await one<{ n: number }>(`select count(*)::int as n from mailboxes where address = 'harry@rkdigitalmedia.in'`))!.n).toBe(0);
+  });
+
   it('shows the real WhatsApp number for privacy-ID chats, links them to the lead, and ignores automatic greetings', async () => {
     const { q, one } = db;
     const { recordWaMessage, reconcileWhatsApp } = await import('@/lib/sync/wa-store');
