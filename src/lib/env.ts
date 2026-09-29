@@ -79,6 +79,10 @@ export const env = {
   get adminPasswordHash() {
     return read('ADMIN_PASSWORD_HASH') ?? '';
   },
+  /** Plain password, only used when no ADMIN_PASSWORD_HASH is set (e.g. typed into hPanel's env editor). */
+  get adminPassword() {
+    return read('ADMIN_PASSWORD') ?? '';
+  },
   get totpSecret() {
     return read('ADMIN_TOTP_SECRET') ?? '';
   },

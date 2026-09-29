@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { verifyPassword } from '@/lib/auth/password';
+import { adminPasswordHash, verifyPassword } from '@/lib/auth/password';
 import { loginBlocked, recordLoginAttempt } from '@/lib/auth/ratelimit';
 import { assertSameOrigin, clientInfo, createSession, destroySession, getSession } from '@/lib/auth/session';
 import { verifyTotp } from '@/lib/auth/totp';
@@ -20,15 +20,16 @@ export async function login(_prev: LoginState, form: FormData): Promise<LoginSta
   const email = String(form.get('email') ?? '').trim().toLowerCase();
   const password = String(form.get('password') ?? '');
   const code = String(form.get('code') ?? '');
-  if (!env.adminEmail || !env.adminPasswordHash) {
-    return { error: 'Login is not configured on the server yet (ADMIN_EMAIL and ADMIN_PASSWORD_HASH are missing).' };
+  const stored = adminPasswordHash(env.adminPasswordHash, env.adminPassword);
+  if (!env.adminEmail || !stored) {
+    return { error: 'Login is not configured on the server yet: set ADMIN_EMAIL and ADMIN_PASSWORD (12+ characters) or ADMIN_PASSWORD_HASH.' };
   }
   const { ip, userAgent } = await clientInfo();
   if (await loginBlocked(ip, email)) {
     return { error: 'Too many failed attempts. Wait 15 minutes and try again.' };
   }
   const emailOk = email === env.adminEmail;
-  const passOk = await verifyPassword(password, emailOk ? env.adminPasswordHash : DUMMY_HASH).catch(() => false);
+  const passOk = await verifyPassword(password, emailOk ? await stored : DUMMY_HASH).catch(() => false);
   const codeOk = !env.totpSecret || verifyTotp(env.totpSecret, code);
   const ok = emailOk && passOk && codeOk;
   await recordLoginAttempt(ip, email, ok);

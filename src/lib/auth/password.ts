@@ -28,3 +28,16 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const key = await scrypt(password, Buffer.from(saltB64, 'base64url'), Number(n), Number(r), Number(p));
   return expected.length === key.length && crypto.timingSafeEqual(expected, key);
 }
+
+let plainHash: { source: string; hash: Promise<string> } | null = null;
+
+/**
+ * The stored credential for the admin login: ADMIN_PASSWORD_HASH, or else a hash of
+ * ADMIN_PASSWORD computed once in memory (the plain value is never logged or sent anywhere).
+ */
+export function adminPasswordHash(hash: string, plain: string): Promise<string> | null {
+  if (hash) return Promise.resolve(hash);
+  if (plain.length < 12) return null;
+  if (plainHash?.source !== plain) plainHash = { source: plain, hash: hashPassword(plain) };
+  return plainHash.hash;
+}

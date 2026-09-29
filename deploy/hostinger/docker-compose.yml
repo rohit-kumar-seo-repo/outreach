@@ -1,0 +1,113 @@
+# Rohit Kumar SEO Outreach, as a Hostinger Docker Manager project (hPanel → VPS → Docker Manager).
+#
+# - Builds straight from the GitHub repository; GIT_REF picks the branch or tag.
+# - HTTPS is handled by the VPS's existing Traefik project (entrypoint "websecure",
+#   Let's Encrypt resolver "letsencrypt"), the same way as the other projects on this VPS.
+# - Every secret comes from the project's Environment variables in hPanel.
+#   This file contains none, so it is safe to keep in the repository.
+#   See docs/SETUP.md for the full list.
+
+x-app: &app
+  image: rks-outreach:latest
+  build:
+    context: https://github.com/rohit-kumar-seo-repo/outreach.git#${GIT_REF:-main}
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  # Lets the containers reach n8n and WAHA through their published ports on this VPS
+  # (e.g. N8N_BASE_URL=http://host.docker.internal:<n8n port>) without leaving the machine.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &app-env
+    DATABASE_URL: postgres://outreach:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/outreach
+    PUBLIC_URL: ${PUBLIC_URL:-https://outreach.rohitkumarseo.com}
+    APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Kolkata}
+    ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+    ADMIN_TOTP_SECRET: ${ADMIN_TOTP_SECRET:-}
+    SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+    N8N_BASE_URL: ${N8N_BASE_URL:-}
+    N8N_API_KEY: ${N8N_API_KEY:-}
+    N8N_BRIDGE_URL: ${N8N_BRIDGE_URL:-}
+    N8N_BRIDGE_KEY: ${N8N_BRIDGE_KEY:-}
+    INGEST_KEY: ${INGEST_KEY:-}
+    HOSTINGER_MAIL_TOKENS: ${HOSTINGER_MAIL_TOKENS:-}
+    IMAP_ACCOUNTS_JSON: ${IMAP_ACCOUNTS_JSON:-}
+    MAIL_INITIAL_SYNC_DAYS: ${MAIL_INITIAL_SYNC_DAYS:-120}
+    WAHA_BASE_URL: ${WAHA_BASE_URL:-}
+    WAHA_API_KEY: ${WAHA_API_KEY:-}
+    TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: outreach
+      POSTGRES_DB: outreach
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+    volumes:
+      - outreach_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outreach -d outreach"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/cli/migrate.js"]
+    restart: "no"
+
+  app:
+    <<: *app
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.rks-outreach.rule=Host(`${DOMAIN:-outreach.rohitkumarseo.com}`)
+      - traefik.http.routers.rks-outreach.entrypoints=websecure
+      - traefik.http.routers.rks-outreach.tls.certresolver=letsencrypt
+      - traefik.http.services.rks-outreach.loadbalancer.server.port=3000
+    ports:
+      - "3000"
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker/index.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  backup:
+    image: rks-outreach-backup:latest
+    build:
+      context: https://github.com/rohit-kumar-seo-repo/outreach.git#${GIT_REF:-main}
+      dockerfile: deploy/backup.Dockerfile
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: outreach
+      PGDATABASE: outreach
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+      BACKUP_AT: ${BACKUP_AT:-02:30}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - outreach_backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  outreach_db:
+  outreach_backups:

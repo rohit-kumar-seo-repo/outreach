@@ -25,7 +25,7 @@ export async function workflowCoverage() {
 /** Which server settings are present. Booleans only: secret values are never read out here. */
 export function configChecklist() {
   return [
-    { key: 'ADMIN_EMAIL + ADMIN_PASSWORD_HASH', ok: !!env.adminEmail && !!env.adminPasswordHash, purpose: 'Dashboard login' },
+    { key: 'ADMIN_EMAIL + ADMIN_PASSWORD(_HASH)', ok: !!env.adminEmail && (!!env.adminPasswordHash || env.adminPassword.length >= 12), purpose: 'Dashboard login' },
     { key: 'ADMIN_TOTP_SECRET', ok: !!env.totpSecret, purpose: 'Two-factor login (recommended)' },
     { key: 'N8N_BASE_URL + N8N_API_KEY', ok: !!env.n8nBaseUrl && !!env.n8nApiKey, purpose: 'Send events from n8n execution history' },
     { key: 'N8N_BRIDGE_URL + N8N_BRIDGE_KEY', ok: !!env.bridgeUrl && !!env.bridgeKey, purpose: 'Spreadsheet and data-table rows' },

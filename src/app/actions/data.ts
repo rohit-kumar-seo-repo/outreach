@@ -113,7 +113,7 @@ export async function loadBody(form: FormData): Promise<void> {
   if (!provider) throw new Error('This mailbox is not connected, so the message body cannot be loaded.');
   try {
     const body = await provider.fetchBody(row.folder, row.uid);
-    await q(`update mail_messages set body_text = $2, body_html = $3, body_fetched_at = now(), unseen = false where id = $1`, [
+    await q(`update mail_messages set body_text = $2, body_html = $3, body_fetched_at = now() where id = $1`, [
       id,
       body.text.slice(0, 200_000),
       body.html.slice(0, 500_000),

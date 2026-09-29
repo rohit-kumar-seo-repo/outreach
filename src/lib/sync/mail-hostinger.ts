@@ -1,5 +1,6 @@
 // Hostinger Email API provider (https://api.mail.hostinger.com). One bearer token covers
 // every mailbox in one Hostinger email order; several tokens may be configured.
+import { simpleParser } from 'mailparser';
 import { env } from '../env';
 import { normalizeEmail, normalizeMessageId } from '../normalize';
 import { fetchJson } from './http';
@@ -128,10 +129,13 @@ export class HostingerProvider implements MailProvider {
     return res.data.map((m) => ({ uid: m.uid, flags: m.flags ?? [], unseen: !!m.unseen }));
   }
 
-  /** Note: the Hostinger API marks the message \Seen when its text is fetched. */
+  /**
+   * Parsed from the raw source rather than the API's /text endpoint, which marks the
+   * message \Seen: opening a message in the dashboard must not change the mailbox.
+   */
   async fetchBody(folder: string, uid: number): Promise<{ text: string; html: string }> {
-    const res = await this.get<{ data: { text: string; html: string } }>(`/folders/${encodeURIComponent(folder)}/messages/${uid}/text`);
-    return { text: res.data.text ?? '', html: res.data.html ?? '' };
+    const parsed = await simpleParser(await this.fetchSource(folder, uid));
+    return { text: parsed.text ?? '', html: typeof parsed.html === 'string' ? parsed.html : '' };
   }
 
   async fetchSource(folder: string, uid: number): Promise<string> {

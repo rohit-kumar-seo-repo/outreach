@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, verifyPassword } from '@/lib/auth/password';
+import { adminPasswordHash, hashPassword, verifyPassword } from '@/lib/auth/password';
 import { base32Encode, hotp, verifyTotp } from '@/lib/auth/totp';
 import { redact } from '@/lib/errors';
 import { isValidEmail, normalizeEmail, normalizeMessageId, normalizeSubject, parseAddress, toWaChatId } from '@/lib/normalize';
@@ -60,6 +60,14 @@ describe('bounces', () => {
 });
 
 describe('auth', () => {
+  it('accepts a plain ADMIN_PASSWORD only when no hash is configured', async () => {
+    expect(adminPasswordHash('', 'short')).toBeNull();
+    const fromPlain = await adminPasswordHash('', 'a-long-enough-password')!;
+    expect(await verifyPassword('a-long-enough-password', fromPlain)).toBe(true);
+    const explicit = await hashPassword('another-long-password');
+    expect(await adminPasswordHash(explicit, 'a-long-enough-password')).toBe(explicit);
+  });
+
   it('hashes and verifies passwords with scrypt', async () => {
     const h = await hashPassword('correct horse battery');
     expect(h.startsWith('scrypt:')).toBe(true);
