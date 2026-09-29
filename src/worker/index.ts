@@ -5,6 +5,7 @@ import { pool, withAdvisoryLock } from '../lib/db';
 import { recordIntegrationError } from '../lib/errors';
 import { migrate } from '../lib/migrate';
 import { syncRegistry } from '../lib/registry/sync';
+import { evaluateAlerts } from '../lib/alerts';
 import { deriveLeads } from '../lib/sync/derive';
 import { syncMailboxes } from '../lib/sync/mail-sync';
 import { scanN8nWorkflows, syncN8nExecutions } from '../lib/sync/n8n-sync';
@@ -48,6 +49,14 @@ async function main(): Promise<void> {
     { name: 'mailboxes', everySec: i.mail, run: syncMailboxes },
     { name: 'waha', everySec: i.waha, run: syncWaha },
     { name: 'derive', everySec: i.derive, run: deriveLeads },
+    {
+      name: 'alerts',
+      everySec: i.alerts,
+      run: async () => {
+        const r = await evaluateAlerts();
+        if (r.opened) log(`alerts: ${r.opened} new, ${r.open} open`);
+      },
+    },
   ];
   // First pass in dependency order: leads (sheets) before send events so events link to leads.
   for (const job of jobs) await runJob(job);
@@ -73,7 +82,7 @@ async function main(): Promise<void> {
       if (stopping) return;
       if (now >= next.get(job.name)! || requested.includes(job.name) || requested.includes('all')) {
         await runJob(job);
-        if (job.name !== 'derive') await runJob(jobs.find((j) => j.name === 'derive')!);
+        if (job.name !== 'derive' && job.name !== 'alerts') await runJob(jobs.find((j) => j.name === 'derive')!);
         next.set(job.name, Date.now() + job.everySec * 1000);
       }
     }

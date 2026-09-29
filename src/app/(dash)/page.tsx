@@ -3,6 +3,7 @@ import { AlarmClock, CalendarClock, CheckCheck, Inbox, Megaphone, MessageSquareR
 import { ActivityCharts } from '@/components/ActivityCharts';
 import { FilterBar } from '@/components/FilterBar';
 import { Card, fmt, KpiCard, Notice, PageHeader, SyncState, Tip } from '@/components/ui';
+import { alertCounts } from '@/lib/alerts';
 import { campaignOptions, mailboxOptions } from '@/lib/metrics/campaigns';
 import { parseFilters } from '@/lib/metrics/filters';
 import { dailyActivity, deliveryFunnel, integrationStatuses, overviewKpis } from '@/lib/metrics/overview';
@@ -12,13 +13,14 @@ export const metadata = { title: 'Overview' };
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const f = parseFilters(await searchParams);
-  const [kpis, activity, funnel, integrations, campaigns, mailboxes] = await Promise.all([
+  const [kpis, activity, funnel, integrations, campaigns, mailboxes, alerts] = await Promise.all([
     overviewKpis(f),
     dailyActivity(f),
     deliveryFunnel(f),
     integrationStatuses(),
     campaignOptions(),
     mailboxOptions(),
+    alertCounts(),
   ]);
   const byKey = new Map(integrations.map((i) => [i.key, i]));
   const n8n = byKey.get('n8n:executions');
@@ -50,6 +52,19 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         domains={[...new Set(mailboxes.map((m) => m.domain))]}
         mailboxes={mailboxes.map((m) => m.address)}
       />
+
+      {alerts.critical + alerts.warning > 0 && (
+        <div className="mb-5">
+          <Notice tone={alerts.critical ? 'critical' : 'warn'} title={`${alerts.critical + alerts.warning} open alert${alerts.critical + alerts.warning === 1 ? '' : 's'}`}>
+            {alerts.critical ? `${alerts.critical} critical` : ''}
+            {alerts.critical && alerts.warning ? ', ' : ''}
+            {alerts.warning ? `${alerts.warning} warning${alerts.warning === 1 ? '' : 's'}` : ''}: failed n8n runs, sync failures, overdue follow-ups, bounce spikes or daily limits.{' '}
+            <Link href="/alerts" className="link font-medium">
+              Review alerts →
+            </Link>
+          </Notice>
+        </div>
+      )}
 
       {(noN8n || noSheets || noMail) && (
         <div className="mb-5">

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { updateLeadNotes } from '@/app/actions/data';
-import { LeadStatus, ResultPill, SOURCE_LABEL, StepLabel, TIME_QUALITY_LABEL } from '@/components/status';
+import { deleteOutcome, recordOutcome, updateLeadNotes } from '@/app/actions/data';
+import { LeadStatus, OUTCOME, OutcomeBadge, ResultPill, SOURCE_LABEL, StepLabel, TIME_QUALITY_LABEL } from '@/components/status';
 import { Card, EmptyState, Notice, PageHeader, Pill } from '@/components/ui';
 import { leadDetail } from '@/lib/metrics/leads';
 import { formatDate, formatDateTime, localDate } from '@/lib/time';
@@ -11,7 +11,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   if (!Number.isInteger(id)) notFound();
   const d = await leadDetail(id);
   if (!d) notFound();
-  const { lead, attempts, messages, whatsapp, otherCampaigns } = d;
+  const { lead, attempts, messages, whatsapp, otherCampaigns, outcomes } = d;
   const threads = [...new Map(messages.map((m) => [m.threadKey, m])).values()];
   return (
     <>
@@ -20,6 +20,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <LeadStatus status={lead.status} />
+            <OutcomeBadge outcome={lead.outcome} />
             <Link href={`/campaigns/${lead.campaignSlug}`} className="link">
               {lead.campaignName}
             </Link>
@@ -118,6 +119,90 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </form>
         </Card>
       </div>
+
+      <Card
+        className="mt-4"
+        title="Business outcome"
+        subtitle="Record what this lead became. Campaign results count qualified leads, meetings and wins, not only replies."
+      >
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <form action={recordOutcome} className="grid grid-cols-2 gap-2 text-[13px]">
+            <input type="hidden" name="leadId" value={lead.id} />
+            <label className="col-span-2 block">
+              Outcome
+              <select name="outcome" className="field mt-1 w-full" defaultValue="" required>
+                <option value="" disabled>
+                  Choose…
+                </option>
+                {Object.entries(OUTCOME).map(([k, o]) => (
+                  <option key={k} value={k}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              Date
+              <input type="date" name="date" max={localDate()} defaultValue={localDate()} className="field mt-1 w-full" />
+            </label>
+            <label className="block">
+              Deal value (optional)
+              <span className="mt-1 flex gap-1">
+                <select name="currency" defaultValue="INR" className="field w-20" aria-label="Currency">
+                  {['INR', 'USD', 'AED', 'GBP', 'EUR', 'CAD', 'AUD'].map((cur) => (
+                    <option key={cur}>{cur}</option>
+                  ))}
+                </select>
+                <input name="value" inputMode="decimal" placeholder="0" className="field w-full" />
+              </span>
+            </label>
+            <input name="note" maxLength={1000} placeholder="Note (optional), e.g. call booked for Friday" className="field col-span-2" />
+            <div className="col-span-2">
+              <button className="btn btn-primary">Record outcome</button>
+            </div>
+            {lead.sendsAccepted === 0 && (
+              <p className="col-span-2 text-[12px] text-warn">
+                This lead has no recorded send, so its outcome is shown here but not counted in campaign rates (they use contacted leads only).
+              </p>
+            )}
+          </form>
+          <div>
+            {outcomes.length === 0 ? (
+              <EmptyState title="No outcome recorded">Replies alone do not show whether a campaign brings business. Record qualified leads, meetings and wins here.</EmptyState>
+            ) : (
+              <ol className="space-y-2 text-[13px]">
+                {outcomes.map((o, i) => (
+                  <li key={o.id} className="flex items-start justify-between gap-3 rounded-lg border border-line px-3 py-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <OutcomeBadge outcome={o.outcome} />
+                        {i === 0 && <span className="text-[11px] text-ink-3">current</span>}
+                        <span className="text-ink-2">{formatDate(o.occurredOn)}</span>
+                        {o.value !== null && (
+                          <span className="tabular font-medium">
+                            {o.currency ?? ''} {o.value.toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </div>
+                      {o.note && <p className="mt-1 text-ink-2">{o.note}</p>}
+                      <p className="mt-0.5 text-[11px] text-ink-3">
+                        Recorded {formatDateTime(o.recordedAt)}
+                        {o.recordedBy ? ` by ${o.recordedBy}` : ''}
+                      </p>
+                    </div>
+                    <form action={deleteOutcome}>
+                      <input type="hidden" name="id" value={o.id} />
+                      <button className="btn btn-sm" title="Remove this entry (kept in the audit log)">
+                        Remove
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      </Card>
 
       <Card className="mt-4" title="Send history" subtitle="Every attempt and its result, from every source" pad={false}>
         {attempts.length === 0 ? (

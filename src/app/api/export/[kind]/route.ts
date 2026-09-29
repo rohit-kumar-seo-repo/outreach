@@ -47,6 +47,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ kind
       unsubscribed: c.unsubscribedLeads,
       duplicates_prevented: c.duplicatesPrevented,
       sends_unknown_date: c.sendsUnknownDate,
+      qualified_leads: c.qualifiedLeads,
+      meetings_booked: c.meetingLeads,
+      meeting_rate: c.contacted ? (c.meetingLeads / c.contacted).toFixed(4) : '',
+      won: c.wonLeads,
+      won_value: c.wonValue || '',
+      won_currencies: c.wonCurrencies,
+      lost: c.lostLeads,
     }));
   } else if (kind === 'activity') {
     rows = await q(
@@ -80,11 +87,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ kind
   } else if (kind === 'leads') {
     const all: Record<string, unknown>[] = [];
     for (let page = 1; page <= 200; page++) {
-      const { rows: r } = await listLeads({ campaign: sp.campaign, status: sp.status, search: sp.q, page, pageSize: 200 });
+      const { rows: r } = await listLeads({ campaign: sp.campaign, status: sp.status, outcome: sp.outcome, search: sp.q, page, pageSize: 200 });
       all.push(...(r as unknown as Record<string, unknown>[]));
       if (r.length < 200) break;
     }
     rows = all;
+  } else if (kind === 'outcomes') {
+    rows = await q(
+      `select o.occurred_on, c.slug as campaign, l.id as lead_id, l.name as lead, l.email_norm as email, o.outcome, o.value, o.currency, o.note,
+              o.recorded_at, o.recorded_by
+         from lead_outcomes o join leads l on l.id = o.lead_id left join campaigns c on c.id = coalesce(o.campaign_id, l.campaign_id)
+        order by o.occurred_on, o.id`,
+    );
+  } else if (kind === 'sending') {
+    rows = await q(
+      `with s as (
+         select coalesce(mb.address, lower(v.sender)) as mailbox, coalesce(mb.domain, split_part(lower(v.sender), '@', 2)) as domain,
+                (v.occurred_at at time zone $1)::date as day, count(*)::int as outreach
+           from v_sends v left join mailboxes mb on mb.id = v.mailbox_id
+          where v.channel = 'email' and v.occurred_at is not null and v.time_quality <> 'unknown'
+            and (v.occurred_at at time zone $1)::date between $2::date and $3::date
+          group by 1, 2, 3),
+       o as (
+         select mb.address as mailbox, mb.domain, (m.sent_at at time zone $1)::date as day,
+                count(distinct coalesce(m.message_id, m.folder || ':' || m.uid))::int as other
+           from mail_messages m join mailboxes mb on mb.id = m.mailbox_id
+          where m.direction = 'outbound' and m.send_attempt_id is null and m.folder ~* 'sent' and m.sent_at is not null
+            and (m.sent_at at time zone $1)::date between $2::date and $3::date
+          group by 1, 2, 3)
+       select to_char(coalesce(s.day, o.day), 'YYYY-MM-DD') as day, coalesce(s.domain, o.domain) as domain, coalesce(s.mailbox, o.mailbox) as mailbox,
+              coalesce(s.outreach, 0) as outreach_sends, coalesce(o.other, 0) as other_sent_mail, coalesce(s.outreach, 0) + coalesce(o.other, 0) as total
+         from s full join o on o.mailbox = s.mailbox and o.day = s.day
+        order by 1, 2, 3`,
+      [tz, f.from, f.to],
+    );
   } else {
     return NextResponse.json({ error: 'unknown export' }, { status: 404 });
   }

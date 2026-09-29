@@ -1,8 +1,9 @@
-node_modules/
-.next/
-dist/
-out/
-coverage/
+/node_modules/
+/.next/
+/dist/
+/out/
+# test coverage output only; src/app/(dash)/coverage is a page
+/coverage/
 *.tsbuildinfo
 next-env.d.ts
 # secrets and runtime data — never commit

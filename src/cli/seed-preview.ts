@@ -6,6 +6,7 @@ import { pool, q } from '../lib/db';
 import { migrate } from '../lib/migrate';
 import { registry } from '../lib/registry';
 import { syncRegistry } from '../lib/registry/sync';
+import { evaluateAlerts } from '../lib/alerts';
 import { deriveLeads } from '../lib/sync/derive';
 import { recordSendAttempt } from '../lib/sync/record';
 
@@ -210,7 +211,36 @@ async function main() {
     ('n8n_executions','n8n:executions', now() - interval '2 minutes', now() - interval '2 minutes', 'success', 96, 12),
     ('mailboxes','mailboxes', now() - interval '6 minutes', now() - interval '5 minutes', 'partial', 19, 44)`);
   await q(`insert into integration_errors (source_key, severity, message, fingerprint) values ('waha:sessions','warning','SAMPLE: WhatsApp sessions not working: dubai_car_recovery=SCAN_QR_CODE','preview-1')`);
+  // Alerts, limits, outcomes and coverage samples.
+  await q(`insert into n8n_workflows (id, name, active, tracked) values ('sUMZ8H5bkSyFPWZm', 'AAR Follow-up Sender (SAMPLE)', true, true) on conflict (id) do nothing`);
+  await q(
+    `insert into n8n_executions (execution_id, workflow_id, status, started_at, final, error_message) values
+       ('sample-1', 'sUMZ8H5bkSyFPWZm', 'success', now() - interval '6 days', true, null),
+       ('sample-2', 'sUMZ8H5bkSyFPWZm', 'error', now() - interval '5 hours', true, 'SAMPLE: Send Followup Email: Invalid login: 535 5.7.8 authentication failed')
+     on conflict do nothing`,
+  );
+  await q(`insert into send_limits (scope, key, daily_limit, warn_pct, updated_by) values ('mailbox', 'ads@rohitkumarseo.tech', 40, 80, 'preview'), ('domain', 'rohitkumarseo.tech', 400, 80, 'preview') on conflict do nothing`);
+  const contacted = await q<{ id: number; campaign_id: number }>(
+    `select id, campaign_id from leads where sends_accepted > 0 or id in (select lead_id from send_attempts where result = 'accepted' and lead_id is not null) order by id limit 8`,
+  );
+  const plan: [string, number | null][] = [
+    ['meeting_booked', null],
+    ['won', 45000],
+    ['qualified', null],
+    ['lost', null],
+    ['won', 120000],
+    ['meeting_booked', null],
+  ];
+  for (let i = 0; i < Math.min(plan.length, contacted.length); i++) {
+    const [outcome, value] = plan[i];
+    await q(
+      `insert into lead_outcomes (lead_id, campaign_id, outcome, occurred_on, value, currency, note, recorded_by)
+       values ($1, $2, $3, current_date - $4::int, $5, $6, 'SAMPLE outcome', 'preview')`,
+      [contacted[i].id, contacted[i].campaign_id, outcome, i, value, value ? 'INR' : null],
+    );
+  }
   await deriveLeads();
+  await evaluateAlerts();
   console.log('Preview database seeded with SAMPLE data.');
   await pool().end();
 }

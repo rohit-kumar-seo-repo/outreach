@@ -38,6 +38,13 @@ export interface CampaignStats {
   unsubscribedLeads: number;
   receivedFollowup: number;
   repliedAfterFollowup: number;
+  // business results recorded by hand (contacted leads only, so rates share one denominator)
+  qualifiedLeads: number;
+  meetingLeads: number;
+  wonLeads: number;
+  lostLeads: number;
+  wonValue: number;
+  wonCurrencies: string[];
   mailboxes: string[];
   lastSendAt: Date | null;
 }
@@ -67,6 +74,13 @@ export async function campaignStats(opts: CampaignQuery = {}): Promise<CampaignS
        select v.lead_id, bool_or(v.sentiment = 'positive') as pos, bool_or(v.sentiment = 'not_interested') as neg,
               bool_or(v.sentiment is not null) as classified, count(*)::int as msgs, min(v.at) as first_reply
          from v_replies v group by v.lead_id),
+     oc as (
+       select lead_id, bool_or(outcome in ('qualified', 'meeting_booked', 'won')) as qualified,
+              bool_or(outcome in ('meeting_booked', 'won')) as meeting
+         from lead_outcomes group by lead_id),
+     won as (
+       select distinct on (lead_id) lead_id, value, currency from lead_outcomes
+        where outcome = 'won' order by lead_id, occurred_on desc, recorded_at desc, id desc),
      fu as (select lead_id, min(occurred_at) as first_fu from v_sends
              where step > 0 and occurred_at is not null and time_quality <> 'unknown' group by lead_id),
      s as (select v.campaign_id, v.step, count(*)::int as n, count(*) filter (where v.occurred_at is null or v.time_quality = 'unknown')::int as unknown_n,
@@ -99,6 +113,14 @@ export async function campaignStats(opts: CampaignQuery = {}): Promise<CampaignS
        (select count(*)::int from lc join fu on fu.lead_id = lc.id where lc.campaign_id = c.id) as "receivedFollowup",
        (select count(*)::int from lc join fu on fu.lead_id = lc.id join rep on rep.lead_id = lc.id
           where lc.campaign_id = c.id and rep.first_reply >= fu.first_fu) as "repliedAfterFollowup",
+       (select count(*)::int from lc join oc on oc.lead_id = lc.id where lc.campaign_id = c.id and lc.contacted_flag and oc.qualified) as "qualifiedLeads",
+       (select count(*)::int from lc join oc on oc.lead_id = lc.id where lc.campaign_id = c.id and lc.contacted_flag and oc.meeting) as "meetingLeads",
+       (select count(*)::int from lc where lc.campaign_id = c.id and lc.contacted_flag and lc.outcome = 'won') as "wonLeads",
+       (select count(*)::int from lc where lc.campaign_id = c.id and lc.contacted_flag and lc.outcome = 'lost') as "lostLeads",
+       coalesce((select sum(won.value)::float8 from lc join won on won.lead_id = lc.id
+                  where lc.campaign_id = c.id and lc.contacted_flag and lc.outcome = 'won'), 0) as "wonValue",
+       coalesce((select array_agg(distinct won.currency) from lc join won on won.lead_id = lc.id
+                  where lc.campaign_id = c.id and lc.contacted_flag and lc.outcome = 'won' and won.currency is not null), '{}') as "wonCurrencies",
        coalesce((select array_agg(distinct coalesce(mb.address, sa.sender) order by coalesce(mb.address, sa.sender))
                    from send_attempts sa left join mailboxes mb on mb.id = sa.mailbox_id
                   where sa.campaign_id = c.id and coalesce(mb.address, sa.sender) is not null), '{}') as mailboxes,

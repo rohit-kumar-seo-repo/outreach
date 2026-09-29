@@ -80,11 +80,20 @@ Each source is optional. Anything not connected shows "Not connected" on the das
 4. **WhatsApp.** Set `WAHA_BASE_URL` and `WAHA_API_KEY`.
    - Only chats with contacted leads are read.
    - The dashboard never sends messages.
+5. **Alert emails (optional).** Alerts always show on the dashboard. To also get them by email:
+   1. In n8n, open "Outreach Dashboard — Alerts". It was created **inactive**, with the bridge's Header Auth credential and the mailbox API credential of the Daily Outreach Summary already selected.
+   2. Activate it.
+   3. On the dashboard's **Alerts** page, tick "Send new alerts to n8n" and save.
+
+   Each new alert is emailed once, and again if it becomes critical. Untick the setting or deactivate the workflow to stop.
+6. **Sending limits.** On **Sending volume**, set a daily limit per mailbox or domain, for example your provider's per-mailbox cap. Limits only raise alerts; they never pause sending.
 
 ## 4. Verify
 
 - Open `https://outreach.rohitkumarseo.com/api/health`. It should return `{"ok":true}`.
 - Log in and open **Integrations**: every connected source should show a recent successful sync.
+- Open **Alerts** and click **Check now**. Anything listed is a real problem found in the synced data.
+- Open **Data coverage** to see which days are complete, approximate or unknown.
 - In hPanel Docker Manager, the `outreach` project should list `db`, `app`, `worker` and `backup` as running. `builder` and `migrate` run once and exit with code 0.
 
 ## Backups and restore

@@ -112,7 +112,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           </p>
         </Card>
 
-        <Card title="Outcomes" subtitle="Unique leads · rate = outcome ÷ denominator shown">
+        <Card title="Replies & bounces" subtitle="Unique leads · rate = outcome ÷ denominator shown">
           <dl className="space-y-2 text-[13px]">
             <div className="flex items-center justify-between gap-2">
               <dt>
@@ -176,6 +176,67 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           <p className="mt-3 text-[11.5px] text-ink-3">{Object.keys(LEAD_STATUS).length} statuses are defined; hover a badge for its rule.</p>
         </Card>
       </div>
+
+      <Card
+        className="mt-4"
+        title="Business results"
+        subtitle="Recorded on each lead's page. Counts include contacted leads only, so every rate uses the same denominator as the reply rate."
+        actions={
+          <Link href={`/leads?campaign=${c.slug}&outcome=any`} className="btn btn-sm">
+            Leads with an outcome
+          </Link>
+        }
+      >
+        {c.qualifiedLeads + c.meetingLeads + c.wonLeads + c.lostLeads === 0 ? (
+          <p className="text-[13px] text-ink-2">
+            No outcomes recorded yet. When a reply turns into a qualified lead, a meeting or a deal, record it on the lead&rsquo;s page so this campaign is judged on business, not
+            just replies.
+          </p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-4 text-[13px] md:grid-cols-5">
+            <div>
+              <dt className="text-ink-3">
+                Qualified <Tip text="Contacted leads ever marked Qualified, Meeting booked or Won ÷ leads contacted." />
+              </dt>
+              <dd className="mt-1">
+                <RateCell num={c.qualifiedLeads} den={c.contacted} />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-3">
+                Meetings booked <Tip text="Contacted leads ever marked Meeting booked or Won ÷ leads contacted." />
+              </dt>
+              <dd className="mt-1">
+                <RateCell num={c.meetingLeads} den={c.contacted} />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-3">
+                Won <Tip text="Contacted leads whose latest outcome is Won ÷ leads contacted." />
+              </dt>
+              <dd className="mt-1">
+                <RateCell num={c.wonLeads} den={c.contacted} />
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-3">
+                Won value <Tip text="Sum of the deal values recorded on Won outcomes." />
+              </dt>
+              <dd className="mt-1 text-[15px] font-semibold tabular text-ink">
+                {c.wonValue > 0
+                  ? `${c.wonCurrencies.length === 1 ? `${c.wonCurrencies[0]} ` : ''}${Math.round(c.wonValue).toLocaleString('en-IN')}${c.wonCurrencies.length > 1 ? ' (mixed)' : ''}`
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-3">
+                Lost <Tip text="Contacted leads whose latest outcome is Lost." />
+              </dt>
+              <dd className="mt-1 text-[15px] font-semibold tabular text-ink">{fmt(c.lostLeads)}</dd>
+            </div>
+          </dl>
+        )}
+      </Card>
 
       <Card className="mt-4" title="Daily activity" subtitle={`${f.from} → ${f.to} (use ?from=YYYY-MM-DD&to=YYYY-MM-DD for another range)`}>
         <ActivityCharts points={activity.points} unknownDated={activity.unknownDated} />

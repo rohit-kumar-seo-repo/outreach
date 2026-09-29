@@ -137,3 +137,9 @@ a.link:hover {
     border: 1px solid CanvasText;
   }
 }
+
+/* Data coverage grid: "unknown" days get a hatch so the state never relies on colour alone. */
+.cov-unknown {
+  background-color: var(--color-card);
+  background-image: repeating-linear-gradient(135deg, var(--color-line) 0 1px, transparent 1px 5px);
+}

@@ -12,7 +12,7 @@
   - Settings → "Sign out everywhere" revokes all sessions.
 - **Login throttling.** 5 failures per email or 10 per IP in 15 minutes blocks further attempts. Failed logins take about the same time whether or not the email exists.
 - **Server actions** check the request origin against `PUBLIC_URL`.
-- **Audit log.** Every data export and every manual change is recorded: assignments, sentiment, suppressions and notes.
+- **Audit log.** Every data export and every manual change is recorded: assignments, sentiment, suppressions, notes, business outcomes, sending limits and alert settings.
 - **Security headers.** Strict CSP, HSTS, `frame-ancestors 'none'`, `noindex`. `robots.txt` disallows everything.
 
 ## Secrets
@@ -21,11 +21,13 @@
 - **The Integrations page** shows only whether a setting is present (yes/no), never its value.
 - **Integration errors** are redacted before they are stored or shown: bearer tokens, API keys, passwords and key/token query parameters are masked.
 - **The n8n bridge** is protected by a header key (`X-Outreach-Bridge-Key`) and only reads sheets.
+- **Alert notifications** are off by default. When turned on, the worker posts alert titles and details to the n8n `outreach-dashboard-alerts` webhook with the same header key. Error messages in alerts are redacted like integration errors.
 - **The ingest endpoint** (`/api/ingest/n8n`) is disabled unless `INGEST_KEY` is set, and it rejects any request without that key.
 
 ## Mail and WhatsApp safety
 
-- **The dashboard never sends email or WhatsApp messages.** All sending stays in your approved n8n workflows.
+- **The dashboard never sends email or WhatsApp messages.** All sending stays in your approved n8n workflows. Alert emails, if you turn them on, are sent by the n8n workflow "Outreach Dashboard — Alerts", which you activate yourself, and only to you.
+- **Limits and alerts never change sending.** They do not pause workflows, edit sheets or stop follow-ups in n8n.
 - **Mailbox access is read-only.**
   - IMAP uses `EXAMINE` and `BODY.PEEK`.
   - The Hostinger Email API is only called with GET.

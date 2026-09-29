@@ -14,9 +14,12 @@ It never sends messages itself. Anything that isn't connected is shown as "Not c
 | Page | What it shows |
 |---|---|
 | Overview | Today's KPIs, a delivery funnel (scheduled → attempted → accepted → bounced / confirmed / unverified), a 30-day chart with filters, and sync health |
-| Campaigns | Per-campaign sends, follow-ups by step, replies, bounces and failures. Every rate shows its denominator. |
+| Alerts | Failed n8n runs, sync failures, overdue follow-ups, bounce spikes and daily-limit breaches. Optional email through n8n. |
+| Campaigns | Per-campaign sends, follow-ups by step, replies, bounces, failures, and business results (qualified, meetings, won). Every rate shows its denominator. |
 | Inbox | All synced mail folders, full threads linked to leads and campaigns, "Unmatched" messages with manual assignment, and follow-up flags |
-| Leads | Status, due and overdue follow-ups, full send history, duplicate detection and suppressions |
+| Leads | Status, due and overdue follow-ups, full send history, duplicate detection, suppressions, and recorded outcomes |
+| Sending volume | Daily sends per mailbox and per domain, with limits you set |
+| Data coverage | Which days' numbers are complete, approximate or unknown, per campaign |
 | Spreadsheets | Real columns and statuses for each sheet, plus how "contacted" and "remaining" are calculated |
 | WhatsApp | WAHA sessions, messages sent, ticks and replies, once WAHA is connected |
 | Integrations, Reports, Settings | Sync status and errors, CSV exports, sessions |

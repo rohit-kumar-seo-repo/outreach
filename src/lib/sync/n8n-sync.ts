@@ -1,5 +1,5 @@
 import { one, q, tx } from '../db';
-import { recordIntegrationError, resolveIntegrationErrors } from '../errors';
+import { recordIntegrationError, redact, resolveIntegrationErrors } from '../errors';
 import { registry } from '../registry';
 import { listExecutions, listWorkflows, n8nConfigured } from './n8n-client';
 import { extractFromExecution, senderNodesIn, type N8nExecution, type RunData } from './n8n-extract';
@@ -13,18 +13,38 @@ const KNOWN_STREAK_STOP = 5;
 const MAX_PAGES = 60;
 
 async function executionIsKnownFinal(id: string): Promise<boolean> {
-  const row = await one<{ final: boolean }>('select final from n8n_executions where execution_id = $1', [id]);
+  // Failed runs stored before error messages were captured are fetched once more to record why they failed.
+  const row = await one<{ final: boolean }>(
+    `select final and not (status in ('error', 'crashed') and error_message is null) as final from n8n_executions where execution_id = $1`,
+    [id],
+  );
   return !!row?.final;
+}
+
+/** The error n8n reports for a failed run: the workflow-level error, else the first failing node's. */
+export function executionError(exec: N8nExecution): string | null {
+  const top = exec.data?.resultData?.error?.message;
+  if (top) return redact(String(top)).slice(0, 500);
+  for (const [node, runs] of Object.entries(exec.data?.resultData?.runData ?? {})) {
+    for (const run of runs ?? []) {
+      const msg = (run as { error?: { message?: string } }).error?.message;
+      if (msg) return redact(`${node}: ${msg}`).slice(0, 500);
+    }
+  }
+  return null;
 }
 
 async function saveExecution(exec: N8nExecution, extracted: number, parseError: string | null): Promise<void> {
   const final = FINAL.has(String(exec.status)) || (exec.finished === true && !exec.status);
+  // '' marks a failed run whose error n8n did not report, so it is not fetched again.
+  const error = exec.status === 'error' || exec.status === 'crashed' ? (executionError(exec) ?? '') : null;
   await q(
-    `insert into n8n_executions (execution_id, workflow_id, status, mode, started_at, stopped_at, processed_at, attempts_extracted, parse_error, final)
-     values ($1,$2,$3,$4,$5,$6,now(),$7,$8,$9)
+    `insert into n8n_executions (execution_id, workflow_id, status, mode, started_at, stopped_at, processed_at, attempts_extracted, parse_error, final, error_message)
+     values ($1,$2,$3,$4,$5,$6,now(),$7,$8,$9,$10)
      on conflict (execution_id) do update set status = excluded.status, stopped_at = excluded.stopped_at,
-       processed_at = now(), attempts_extracted = excluded.attempts_extracted, parse_error = excluded.parse_error, final = excluded.final`,
-    [String(exec.id), exec.workflowId, exec.status ?? null, exec.mode ?? null, exec.startedAt ?? null, exec.stoppedAt ?? null, extracted, parseError, final],
+       processed_at = now(), attempts_extracted = excluded.attempts_extracted, parse_error = excluded.parse_error, final = excluded.final,
+       error_message = excluded.error_message`,
+    [String(exec.id), exec.workflowId, exec.status ?? null, exec.mode ?? null, exec.startedAt ?? null, exec.stoppedAt ?? null, extracted, parseError, final, error],
   );
 }
 

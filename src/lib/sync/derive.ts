@@ -100,7 +100,18 @@ export async function deriveLeads(): Promise<void> {
                                 coalesce((v.supp_reason is not null and v.supp_reason <> 'hard_bounce') or v.sentiment = 'unsubscribe', false))`,
     );
 
+    // 3b. Latest recorded business outcome (qualified / meeting booked / won / lost).
+    await q(
+      `with latest as (
+         select distinct on (lead_id) lead_id, outcome, occurred_on
+           from lead_outcomes order by lead_id, occurred_on desc, recorded_at desc, id desc)
+       update leads l set outcome = x.outcome, outcome_on = x.occurred_on
+         from (select l2.id, latest.outcome, latest.occurred_on from leads l2 left join latest on latest.lead_id = l2.id) x
+        where l.id = x.id and (l.outcome, l.outcome_on) is distinct from (x.outcome, x.occurred_on)`,
+    );
+
     // 4. Next follow-up per the campaign's real sequence rules (see config/registry.json).
+    //    A lead with a recorded outcome (e.g. meeting booked, lost) gets no automatic follow-up date.
     for (const camp of registry().campaigns) {
       const f = camp.followup;
       let expr = 'null::timestamptz';
@@ -113,7 +124,7 @@ export async function deriveLeads(): Promise<void> {
       await q(
         `update leads l set next_followup_at = x.nf
            from (select l.id,
-                   case when l.last_reply_at is not null or l.suppressed or l.bounced_at is not null or l.sheet_state in ('replied', 'completed', 'bounced', 'excluded')
+                   case when l.last_reply_at is not null or l.suppressed or l.bounced_at is not null or l.outcome is not null or l.sheet_state in ('replied', 'completed', 'bounced', 'excluded')
                         then l.manual_followup_at
                         else nullif(least(coalesce(${expr}, 'infinity'::timestamptz), coalesce(l.manual_followup_at, 'infinity'::timestamptz)), 'infinity'::timestamptz)
                    end as nf

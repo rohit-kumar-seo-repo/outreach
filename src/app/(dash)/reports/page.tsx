@@ -7,11 +7,13 @@ export default function ReportsPage() {
   const today = localDate();
   const from = addDays(today, -29);
   const exports = [
-    ['campaigns', 'Campaign performance', 'One row per campaign: leads, sends, follow-ups by step, replies, rates with numerators and denominators.'],
+    ['campaigns', 'Campaign performance', 'One row per campaign: leads, sends, follow-ups by step, replies, meetings, wins, rates with numerators and denominators.'],
     ['activity', 'Daily activity', 'One row per day and campaign: originals, follow-ups, replies, bounces, failed attempts.'],
     ['attempts', 'Send attempts', 'Every send attempt with result, server response, n8n workflow/execution id and time quality.'],
     ['replies', 'Replies', 'Every matched reply with lead, campaign, mailbox, match method and your classification.'],
-    ['leads', 'Leads', 'Every lead with status, source sheet/row, last contact, last reply and next follow-up.'],
+    ['leads', 'Leads', 'Every lead with status, outcome, source sheet/row, last contact, last reply and next follow-up.'],
+    ['outcomes', 'Business outcomes', 'Every recorded outcome (qualified, meeting booked, won, lost) with date, deal value and note.'],
+    ['sending', 'Sending volume', 'One row per day and mailbox: outreach sends, other sent mail and the total.'],
   ];
   return (
     <>
@@ -26,7 +28,7 @@ export default function ReportsPage() {
             To
             <input type="date" name="to" defaultValue={today} className="field" />
           </label>
-          <p className="pb-2 text-xs text-ink-3">The range applies to activity, attempts and replies. Campaign and lead exports are all-time.</p>
+          <p className="pb-2 text-xs text-ink-3">The range applies to activity, attempts, replies and sending volume. Campaign, lead and outcome exports are all-time.</p>
         </form>
         <ul className="divide-y divide-line">
           {exports.map(([kind, label, help]) => (

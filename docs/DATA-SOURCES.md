@@ -36,6 +36,8 @@ The dashboard **pulls** data from the systems you already use. It never modifies
   - WhatsApp and Aesthetic rows carry no date. They are imported as "date unknown", counted in totals but never in per-day charts.
 - **Mailboxes.** The last `MAIL_INITIAL_SYNC_DAYS` days (120 by default). Sent-folder copies are linked to sheet sends by Message-ID, or by recipient plus time.
 
+The **Data coverage** page shows the result per campaign and day: complete, approximate (sheet only) or unknown. The rules are in [METRICS.md](METRICS.md#data-coverage).
+
 ## Findings from the inspection (29 Sep 2026)
 
 1. **AAR Follow-up Sender fails every run.**

@@ -20,10 +20,15 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
   const email = stats.filter((s) => s.channel === 'email');
   const wa = stats.filter((s) => s.channel === 'whatsapp');
   const best = [...stats].filter((s) => s.contacted >= 10).sort((a, b) => b.repliedLeads / b.contacted - a.repliedLeads / a.contacted)[0];
+  // Business results beat replies: rank by meetings booked, then wins, when any are recorded.
+  const bestResults = [...stats].filter((s) => s.meetingLeads + s.wonLeads > 0).sort((a, b) => b.wonLeads - a.wonLeads || b.meetingLeads - a.meetingLeads)[0];
+  const anyOutcomes = stats.some((s) => s.qualifiedLeads + s.meetingLeads + s.wonLeads + s.lostLeads > 0);
+  const money = (c: (typeof stats)[number]) =>
+    c.wonValue > 0 ? `${c.wonCurrencies.length === 1 ? `${c.wonCurrencies[0]} ` : ''}${Math.round(c.wonValue).toLocaleString('en-IN')}${c.wonCurrencies.length > 1 ? ' (mixed currencies)' : ''}` : null;
 
   const table = (rows: typeof stats) => (
     <div className="overflow-x-auto">
-      <table className="table-compact w-full min-w-[1080px]">
+      <table className="table-compact w-full min-w-[1240px]">
         <thead>
           <tr>
             <th>Campaign</th>
@@ -38,6 +43,12 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
             </th>
             <th className="text-right">
               Positive rate <Tip text="Unique leads whose reply you marked Positive ÷ unique leads contacted. Only as complete as your reply classification." />
+            </th>
+            <th className="text-right">
+              Meetings <Tip text="Contacted leads with an outcome of Meeting booked or Won ÷ unique leads contacted. Outcomes are recorded on the lead page." />
+            </th>
+            <th className="text-right">
+              Won <Tip text="Contacted leads whose latest outcome is Won, with the total deal value recorded." />
             </th>
             <th className="text-right">
               Bounce rate <Tip text="Unique contacted leads with a bounce report ÷ unique leads contacted." />
@@ -70,6 +81,13 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
                 <RateCell num={c.positiveLeads} den={c.contacted} label="Positive leads ÷ contacted leads" />
               </td>
               <td className="text-right">
+                <RateCell num={c.meetingLeads} den={c.contacted} label="Meetings booked ÷ contacted leads" />
+              </td>
+              <td className="text-right tabular">
+                {fmt(c.wonLeads)}
+                {money(c) && <div className="text-[11px] text-ink-3">{money(c)}</div>}
+              </td>
+              <td className="text-right">
                 <RateCell num={c.bouncedLeads} den={c.contacted} label="Bounced leads ÷ contacted leads" />
               </td>
               <td className="text-right tabular">{fmt(c.failedNeverAccepted)}</td>
@@ -85,7 +103,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader
         title="Campaigns"
-        subtitle="Compare campaigns on replies, not opens. Every rate uses the same denominator: unique leads contacted."
+        subtitle="Compare campaigns on meetings, wins and replies, never opens. Every rate uses the same denominator: unique leads contacted."
         actions={
           <div className="flex rounded-lg border border-line-strong bg-white p-0.5 text-xs">
             {PERIODS.map((p) => (
@@ -104,10 +122,27 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
           </Notice>
         </div>
       )}
-      {best && (
+      {bestResults ? (
         <div className="mb-4">
-          <Notice tone="good" title="Highest reply rate (campaigns with ≥ 10 contacted leads)">
-            {best.name}: {best.repliedLeads} of {best.contacted} contacted leads replied.
+          <Notice tone="good" title="Best business results so far">
+            {bestResults.name}: {bestResults.wonLeads} won, {bestResults.meetingLeads} meeting(s) booked from {bestResults.contacted} contacted leads.
+            {best && best.slug !== bestResults.slug ? ` Highest reply rate: ${best.name} (${best.repliedLeads} of ${best.contacted}).` : ''}
+          </Notice>
+        </div>
+      ) : (
+        best && (
+          <div className="mb-4">
+            <Notice tone="good" title="Highest reply rate (campaigns with ≥ 10 contacted leads)">
+              {best.name}: {best.repliedLeads} of {best.contacted} contacted leads replied.
+            </Notice>
+          </div>
+        )
+      )}
+      {!anyOutcomes && (
+        <div className="mb-4">
+          <Notice title="Add business results">
+            Replies show interest, not business. Record Qualified lead, Meeting booked, Won or Lost on a lead&rsquo;s page, and campaigns are compared on meetings and wins
+            here.
           </Notice>
         </div>
       )}

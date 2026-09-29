@@ -5,6 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   BarChart3,
+  Bell,
+  CalendarCheck,
+  Gauge,
   FileSpreadsheet,
   Inbox,
   LayoutDashboard,
@@ -22,11 +25,14 @@ import { logout } from '@/app/actions/auth';
 
 const NAV = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
+  { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { href: '/inbox', label: 'Inbox', icon: Inbox },
   { href: '/leads', label: 'Leads & follow-ups', icon: Users },
+  { href: '/sending', label: 'Sending volume', icon: Gauge },
   { href: '/spreadsheets', label: 'Spreadsheets', icon: FileSpreadsheet },
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { href: '/coverage', label: 'Data coverage', icon: CalendarCheck },
   { href: '/reports', label: 'Reports & exports', icon: Download },
   { href: '/integrations', label: 'Integrations', icon: PlugZap },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -85,7 +91,7 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
                 <Icon size={17} aria-hidden className={active ? 'text-white' : 'text-navy-300'} />
                 <span className="flex-1">{label}</span>
                 {badge ? (
-                  <span className="rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white tabular" aria-label={`${badge} need attention`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white tabular ${href === '/alerts' ? 'bg-critical' : 'bg-brand'}`} aria-label={`${badge} need attention`}>
                     {badge > 99 ? '99+' : badge}
                   </span>
                 ) : null}

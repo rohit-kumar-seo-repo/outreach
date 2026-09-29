@@ -100,7 +100,7 @@ export function KpiCard({
       ) : (
         <>
           <div className="mt-2 text-[26px] font-semibold leading-none text-ink">{value}</div>
-          {sub ? <div className="mt-2 text-xs text-ink-3">{sub}</div> : null}
+          {sub ? <div className="mt-2 text-xs text-ink-3 [overflow-wrap:anywhere]">{sub}</div> : null}
         </>
       )}
     </div>

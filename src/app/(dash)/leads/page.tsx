@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LEAD_STATUS, LeadStatus } from '@/components/status';
+import { LEAD_STATUS, LeadStatus, OUTCOME, OutcomeBadge } from '@/components/status';
 import { Card, EmptyState, fmt, PageHeader } from '@/components/ui';
 import { campaignOptions } from '@/lib/metrics/campaigns';
 import { listLeads, statusSummary } from '@/lib/metrics/leads';
@@ -21,7 +21,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const followup = sp.followup === 'due' || sp.followup === 'today' || sp.followup === 'overdue' ? sp.followup : null;
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
   const [{ rows, total }, summary, campaigns] = await Promise.all([
-    listLeads({ campaign: sp.campaign, status: sp.status, search: sp.q, followup, page, pageSize: 50 }),
+    listLeads({ campaign: sp.campaign, status: sp.status, outcome: sp.outcome, search: sp.q, followup, page, pageSize: 50 }),
     statusSummary(),
     campaignOptions(),
   ]);
@@ -64,6 +64,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           {Object.entries(LEAD_STATUS).map(([k, v]) => (
             <option key={k} value={k}>
               {v.label} ({fmt(summary[k] ?? 0)})
+            </option>
+          ))}
+        </select>
+        <select name="outcome" defaultValue={sp.outcome ?? ''} className="field" aria-label="Outcome">
+          <option value="">Any outcome</option>
+          <option value="any">Has an outcome</option>
+          {Object.entries(OUTCOME).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v.label}
             </option>
           ))}
         </select>
@@ -117,7 +126,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       </div>
                     </td>
                     <td>
-                      <LeadStatus status={l.status} />
+                      <div className="flex flex-wrap gap-1">
+                        <LeadStatus status={l.status} />
+                        <OutcomeBadge outcome={l.outcome} />
+                      </div>
                     </td>
                     <td className="max-w-48 truncate text-[12px] text-ink-2" title={l.sheetStatus ?? ''}>
                       {l.sheetStatus || '(blank)'}

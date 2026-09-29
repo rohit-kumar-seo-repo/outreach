@@ -65,3 +65,20 @@ export const TIME_QUALITY_LABEL: Record<string, string> = {
   date_only: 'date only',
   unknown: 'time unknown',
 };
+
+export const OUTCOME: Record<string, { label: string; tone: Tone; help: string }> = {
+  qualified: { label: 'Qualified lead', tone: 'teal', help: 'A real prospect with a need and budget worth pursuing.' },
+  meeting_booked: { label: 'Meeting booked', tone: 'brand', help: 'A call or meeting is scheduled.' },
+  won: { label: 'Won', tone: 'good', help: 'Became a paying client.' },
+  lost: { label: 'Lost', tone: 'default', help: 'Went cold or chose someone else.' },
+};
+
+export function OutcomeBadge({ outcome }: { outcome: string | null | undefined }) {
+  if (!outcome) return null;
+  const o = OUTCOME[outcome] ?? { label: outcome, tone: 'default' as Tone, help: '' };
+  return (
+    <Pill tone={o.tone} title={o.help}>
+      {o.label}
+    </Pill>
+  );
+}

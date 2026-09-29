@@ -6,6 +6,8 @@ import { one, q, tx } from '@/lib/db';
 import { digitsOnly, normalizeEmail } from '@/lib/normalize';
 import { providerFor } from '@/lib/sync/mail-sync';
 import { deriveLeads } from '@/lib/sync/derive';
+import { DEFAULT_ALERT_SETTINGS, evaluateAlerts, type AlertSettings } from '@/lib/alerts';
+import { localDate } from '@/lib/time';
 
 async function guard(): Promise<string> {
   await assertSameOrigin();
@@ -167,7 +169,7 @@ export async function removeSuppression(form: FormData): Promise<void> {
 export async function requestSync(form: FormData): Promise<void> {
   const actor = await guard();
   const job = String(form.get('job') ?? 'all');
-  const allowed = ['all', 'sheets', 'n8n-executions', 'mailboxes', 'waha', 'n8n-workflows', 'derive'];
+  const allowed = ['all', 'sheets', 'n8n-executions', 'mailboxes', 'waha', 'n8n-workflows', 'derive', 'alerts'];
   if (!allowed.includes(job)) return;
   await q(
     `insert into app_state (key, value) values ('sync_request', $1)
@@ -191,4 +193,115 @@ export async function signOutEverywhere(): Promise<void> {
   const n = await revokeAllSessions();
   await audit(actor, 'revoke_all_sessions', '', { n });
   revalidatePath('/settings');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Business outcomes
+
+const OUTCOMES = new Set(['qualified', 'meeting_booked', 'won', 'lost']);
+
+export async function recordOutcome(form: FormData): Promise<void> {
+  const actor = await guard();
+  const leadId = Number(form.get('leadId'));
+  const outcome = String(form.get('outcome') ?? '');
+  const date = String(form.get('date') ?? '') || localDate();
+  const valueRaw = String(form.get('value') ?? '').replace(/[, ]/g, '');
+  const value = valueRaw === '' ? null : Number(valueRaw);
+  const currency = String(form.get('currency') ?? '').toUpperCase();
+  const note = String(form.get('note') ?? '').trim().slice(0, 1000) || null;
+  if (!Number.isInteger(leadId) || !OUTCOMES.has(outcome) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > localDate()) return;
+  if (value !== null && (!Number.isFinite(value) || value < 0 || value > 1e12)) return;
+  const lead = await one<{ campaign_id: number }>('select campaign_id from leads where id = $1', [leadId]);
+  if (!lead) return;
+  await q(
+    `insert into lead_outcomes (lead_id, campaign_id, outcome, occurred_on, value, currency, note, recorded_by)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [leadId, lead.campaign_id, outcome, date, value, value !== null && /^[A-Z]{3}$/.test(currency) ? currency : null, note, actor],
+  );
+  await audit(actor, 'record_outcome', String(leadId), { outcome, date, value });
+  await deriveLeads();
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/campaigns');
+}
+
+export async function deleteOutcome(form: FormData): Promise<void> {
+  const actor = await guard();
+  const id = Number(form.get('id'));
+  if (!Number.isInteger(id)) return;
+  const row = await one<{ lead_id: number; outcome: string }>('delete from lead_outcomes where id = $1 returning lead_id, outcome', [id]);
+  if (!row) return;
+  await audit(actor, 'delete_outcome', String(row.lead_id), { outcome: row.outcome });
+  await deriveLeads();
+  revalidatePath(`/leads/${row.lead_id}`);
+  revalidatePath('/campaigns');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Daily sending limits
+
+export async function saveSendLimit(form: FormData): Promise<void> {
+  const actor = await guard();
+  const scope = form.get('scope') === 'domain' ? 'domain' : 'mailbox';
+  const key = String(form.get('key') ?? '').trim().toLowerCase();
+  const limitRaw = String(form.get('dailyLimit') ?? '').trim();
+  const warnPct = Math.min(100, Math.max(1, Number(form.get('warnPct')) || 80));
+  if (!key || key.length > 200 || (scope === 'mailbox' ? !/^[^@\s]+@[^@\s]+$/.test(key) : !/^[a-z0-9.-]+$/.test(key))) return;
+  if (limitRaw === '' || limitRaw === '0') {
+    await q('delete from send_limits where scope = $1 and key = $2', [scope, key]);
+    await audit(actor, 'clear_send_limit', `${scope}:${key}`);
+  } else {
+    const limit = Number(limitRaw);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100_000) return;
+    await q(
+      `insert into send_limits (scope, key, daily_limit, warn_pct, updated_by) values ($1, $2, $3, $4, $5)
+       on conflict (scope, key) do update set daily_limit = excluded.daily_limit, warn_pct = excluded.warn_pct, updated_at = now(), updated_by = excluded.updated_by`,
+      [scope, key, limit, warnPct, actor],
+    );
+    await audit(actor, 'set_send_limit', `${scope}:${key}`, { limit, warnPct });
+  }
+  await evaluateAlerts().catch(() => undefined);
+  revalidatePath('/sending');
+  revalidatePath('/alerts');
+}
+
+// ---------------------------------------------------------------------------------------------
+// Alerts
+
+export async function acknowledgeAlert(form: FormData): Promise<void> {
+  const actor = await guard();
+  const id = Number(form.get('id'));
+  if (!Number.isInteger(id)) return;
+  await q('update alerts set acknowledged_at = now(), acknowledged_by = $2 where id = $1 and acknowledged_at is null', [id, actor]);
+  await audit(actor, 'acknowledge_alert', String(id));
+  revalidatePath('/alerts');
+}
+
+export async function checkAlertsNow(): Promise<void> {
+  const actor = await guard();
+  await evaluateAlerts();
+  await audit(actor, 'check_alerts', '');
+  revalidatePath('/alerts');
+}
+
+export async function saveAlertSettings(form: FormData): Promise<void> {
+  const actor = await guard();
+  const num = (name: string, min: number, max: number, fallback: number) => {
+    const n = Number(form.get(name));
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+  const d = DEFAULT_ALERT_SETTINGS;
+  const settings: AlertSettings = {
+    bounceMinCount: Math.round(num('bounceMinCount', 1, 1000, d.bounceMinCount)),
+    bounceRatePct: num('bounceRatePct', 0.5, 100, d.bounceRatePct),
+    bounceSpikeMultiplier: num('bounceSpikeMultiplier', 1.5, 50, d.bounceSpikeMultiplier),
+    overdueGraceDays: Math.round(num('overdueGraceDays', 0, 30, d.overdueGraceDays)),
+    notifyN8n: form.get('notifyN8n') === 'on',
+  };
+  await q(
+    `insert into app_state (key, value) values ('alert_settings', $1) on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [JSON.stringify(settings)],
+  );
+  await audit(actor, 'alert_settings', '', settings as unknown as Record<string, unknown>);
+  await evaluateAlerts().catch(() => undefined);
+  revalidatePath('/alerts');
 }

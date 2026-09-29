@@ -22,6 +22,7 @@ export interface LeadRow {
   lastReplyAt: Date | null;
   replySentiment: string | null;
   nextFollowupAt: Date | null;
+  outcome: string | null;
 }
 
 export interface LeadQuery {
@@ -30,6 +31,8 @@ export interface LeadQuery {
   source?: string | null;
   search?: string | null;
   followup?: 'due' | 'today' | 'overdue' | null;
+  /** 'any' = has a recorded outcome; otherwise the latest outcome must match. */
+  outcome?: string | null;
   page?: number;
   pageSize?: number;
 }
@@ -40,6 +43,8 @@ export async function listLeads(opts: LeadQuery): Promise<{ rows: LeadRow[]; tot
   if (opts.campaign) where.push(`c.slug = ${p.add(opts.campaign)}`);
   if (opts.status) where.push(`l.status = ${p.add(opts.status)}`);
   if (opts.source) where.push(`s.key = ${p.add(opts.source)}`);
+  if (opts.outcome === 'any') where.push('l.outcome is not null');
+  else if (opts.outcome) where.push(`l.outcome = ${p.add(opts.outcome)}`);
   if (opts.search) {
     const s = p.add(`%${opts.search.toLowerCase()}%`);
     where.push(`(lower(coalesce(l.name,'')) like ${s} or coalesce(l.email_norm,'') like ${s} or coalesce(l.phone_norm,'') like ${s} or lower(l.source_row_key) like ${s})`);
@@ -63,7 +68,7 @@ export async function listLeads(opts: LeadQuery): Promise<{ rows: LeadRow[]; tot
             c.channel, s.name as "sourceName", s.external_url as "sourceUrl", l.source_row_number as "rowNumber", l.status,
             l.sheet_status as "sheetStatus", l.sends_accepted as "sendsAccepted", l.followups_accepted as "followupsAccepted",
             l.last_contacted_at as "lastContactedAt", l.last_reply_at as "lastReplyAt", l.reply_sentiment as "replySentiment",
-            l.next_followup_at as "nextFollowupAt"
+            l.next_followup_at as "nextFollowupAt", l.outcome
        ${base} order by ${order} limit ${pageSize} offset ${offset}`,
     p.values,
   );
@@ -101,7 +106,7 @@ export async function leadDetail(id: number) {
             l.first_contacted_at as "firstContactedAt", l.last_reply_at as "lastReplyAt", l.reply_sentiment as "replySentiment",
             l.next_followup_at as "nextFollowupAt", l.manual_followup_at as "manualFollowupAt", l.website, l.city, l.country, l.category, l.raw,
             l.is_duplicate as "isDuplicate", l.duplicate_of as "duplicateOf", l.suppressed, l.suppression_reason as "suppressionReason",
-            l.bounced_at as "bouncedAt", l.notes, l.present_in_source as "presentInSource"
+            l.bounced_at as "bouncedAt", l.notes, l.present_in_source as "presentInSource", l.outcome
        from leads l join campaigns c on c.id = l.campaign_id left join sources s on s.id = l.source_id where l.id = $1`,
     [id],
   );
@@ -158,7 +163,12 @@ export async function leadDetail(id: number) {
       order by l.id`,
     [id, lead.emailNorm, lead.waChatId],
   );
-  return { lead, attempts, messages, whatsapp, otherCampaigns };
+  const outcomes = await q<{ id: number; outcome: string; occurredOn: string; value: number | null; currency: string | null; note: string | null; recordedAt: Date; recordedBy: string | null }>(
+    `select id, outcome, occurred_on as "occurredOn", value::float8 as value, currency, note, recorded_at as "recordedAt", recorded_by as "recordedBy"
+       from lead_outcomes where lead_id = $1 order by occurred_on desc, recorded_at desc, id desc`,
+    [id],
+  );
+  return { lead, attempts, messages, whatsapp, otherCampaigns, outcomes };
 }
 
 export async function statusSummary(): Promise<Record<string, number>> {
