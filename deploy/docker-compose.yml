@@ -1,0 +1,103 @@
+# Rohit Kumar SEO Outreach — production stack for the Hostinger VPS.
+# Secrets live in deploy/.env (chmod 600, never committed). See docs/SETUP.md.
+name: rks-outreach
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: outreach
+      POSTGRES_DB: outreach
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outreach -d outreach"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  migrate:
+    image: rks-outreach:latest
+    build: { context: .., dockerfile: Dockerfile }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://outreach:${POSTGRES_PASSWORD}@db:5432/outreach
+    command: ["node", "dist/cli/migrate.js"]
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+    networks: [internal]
+
+  app:
+    image: rks-outreach:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://outreach:${POSTGRES_PASSWORD}@db:5432/outreach
+      BACKUP_DIR: /backups
+    volumes:
+      - ./backups:/backups:ro
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    networks: [internal, edge]
+
+  worker:
+    image: rks-outreach:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://outreach:${POSTGRES_PASSWORD}@db:5432/outreach
+    command: ["node", "dist/worker/index.js"]
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    networks: [internal]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: outreach
+      PGDATABASE: outreach
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${APP_TIMEZONE:-Asia/Kolkata}
+      BACKUP_AT: ${BACKUP_AT:-02:30}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+
+  # Only used when the VPS has no reverse proxy on ports 80/443 (install.sh decides).
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["caddy"]
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:-outreach.rohitkumarseo.com}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+    networks: [edge]
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  internal:
+  edge:

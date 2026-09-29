@@ -1,0 +1,1442 @@
+{
+  "$comment": "Campaign registry built from the live n8n workflows (inspected 2026-09-29). Contains NO spreadsheet IDs, secrets or lead data: spreadsheet IDs live only inside the private n8n Data Bridge workflow and are referenced here by source key.",
+  "owner": {
+    "internalDomains": [
+      "rohitkumarseo.tech",
+      "rohitkumarseo.com",
+      "adssuspensionrecovery.com",
+      "rkdigitalmedia.in"
+    ],
+    "internalAddresses": [
+      "mail.rohitkumarseo@gmail.com"
+    ]
+  },
+  "mailboxes": [
+    {
+      "address": "hello@rohitkumarseo.tech",
+      "via": "hostinger_api"
+    },
+    {
+      "address": "rohit@rohitkumarseo.tech",
+      "via": "hostinger_api"
+    },
+    {
+      "address": "info@rohitkumarseo.tech",
+      "via": "hostinger_api"
+    },
+    {
+      "address": "ads@rohitkumarseo.tech",
+      "via": "hostinger_api"
+    },
+    {
+      "address": "seo@rohitkumarseo.tech",
+      "via": "hostinger_api"
+    },
+    {
+      "address": "agency@adssuspensionrecovery.com",
+      "via": "smtp"
+    },
+    {
+      "address": "agency2@adssuspensionrecovery.com",
+      "via": "smtp"
+    },
+    {
+      "address": "agency3@adssuspensionrecovery.com",
+      "via": "smtp"
+    },
+    {
+      "address": "info@adssuspensionrecovery.com",
+      "via": "smtp"
+    },
+    {
+      "address": "harry@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "jacob@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "larry@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "paul@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "peter@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "sales@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "sales2@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "sales3@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "info@rkdigitalmedia.in",
+      "via": "smtp"
+    },
+    {
+      "address": "support@rkdigitalmedia.in",
+      "via": "smtp"
+    }
+  ],
+  "campaigns": [
+    {
+      "slug": "google-ads-services-intl",
+      "name": "Google Ads Services — UK/US/CA/UAE",
+      "channel": "email",
+      "brand": "rohitkumarseo.tech",
+      "description": "Local-business Google Ads outreach. Rows are drafted, approved in the sheet, then sent by the 15-minute Outreach Send Dispatcher via the Hostinger Email API.",
+      "workflowIds": [
+        "NJLi3kOJRaoB5Bu7"
+      ],
+      "followup": {
+        "mode": "none",
+        "note": "No follow-up workflow exists for this campaign."
+      }
+    },
+    {
+      "slug": "seo-visibility-us",
+      "name": "SEO Visibility — US local businesses",
+      "channel": "email",
+      "brand": "rohitkumarseo.tech",
+      "description": "Rows in the Google Ads outreach sheet whose LeadID starts with \"seo-\". Sent by the Outreach Send Dispatcher.",
+      "workflowIds": [
+        "NJLi3kOJRaoB5Bu7"
+      ],
+      "followup": {
+        "mode": "none",
+        "note": "No follow-up workflow exists for this campaign."
+      }
+    },
+    {
+      "slug": "seo-audit-outreach",
+      "name": "SEO Audit Outreach",
+      "channel": "email",
+      "brand": "rohitkumarseo.tech",
+      "description": "Audit-led outreach with a 4-touch sequence (original + 3 follow-ups at +3/+5/+5 days). Sent by the SEO Audit Send Dispatcher from info@ / seo@.",
+      "workflowIds": [
+        "whdGAfYsvLEGCTKy"
+      ],
+      "followup": {
+        "mode": "source_schedule",
+        "maxSteps": 3,
+        "note": "Next touch time comes from ScheduledSendAtUTC once TouchNumber > 1."
+      }
+    },
+    {
+      "slug": "agency-outreach-india",
+      "name": "Agency Outreach India — Ads Suspension Recovery",
+      "channel": "email",
+      "brand": "adssuspensionrecovery.com",
+      "description": "White-label / referral pitch to Indian agencies. Weekday 11:00 IST send via SMTP rotating agency@, agency2@, agency3@.",
+      "workflowIds": [
+        "DXQsMGCz7F6Rfay0"
+      ],
+      "followup": {
+        "mode": "none",
+        "note": "The sheet has Follow-up Stage / Last Follow-up Date columns but no follow-up workflow was found."
+      }
+    },
+    {
+      "slug": "aesthetic-clinics-rkd",
+      "name": "Aesthetic Clinics — RK Digital Media",
+      "channel": "email",
+      "brand": "rkdigitalmedia.in",
+      "description": "Clinic automation pitch from five rkdigitalmedia.in senders. Original sends came from the (now inactive) RKD Daily Outreach Sender; follow-ups from the RKD Follow-up Engine.",
+      "workflowIds": [
+        "cpwJqG7Zoe5yQfPq",
+        "t5DstkHdTEwbciqI"
+      ],
+      "followup": {
+        "mode": "days_after_last",
+        "cadenceDays": [
+          3,
+          7,
+          14
+        ],
+        "maxSteps": 3,
+        "note": "Follow-up Engine rule: FU1 3 days after the original, FU2 7 days after FU1, FU3 14 days after FU2. The engine reads a 'Date Sent' column; the dashboard flags rows where that column is missing."
+      }
+    },
+    {
+      "slug": "dubai-real-estate",
+      "name": "Dubai Real Estate Outreach",
+      "channel": "email",
+      "brand": "rohitkumarseo.tech",
+      "description": "Daily 11:00 Dubai-time send of drafted rows via the Hostinger Email API (hello@, ads@, seo@).",
+      "workflowIds": [
+        "Bj8UfTYGvzvSfsuX"
+      ],
+      "followup": {
+        "mode": "none",
+        "note": "No follow-up workflow exists for this campaign."
+      }
+    },
+    {
+      "slug": "dubai-clinics-batch2",
+      "name": "Dubai Aesthetic Clinics — Batch 2 (one-off)",
+      "channel": "email",
+      "brand": "rkdigitalmedia.in",
+      "description": "Manually-triggered one-off send to a hard-coded list of 9 clinics from sales@, sales2@, sales3@. Leads exist only as send events.",
+      "workflowIds": [
+        "EouZpJqVRO1qICgR"
+      ],
+      "leadsFromSends": true,
+      "followup": {
+        "mode": "none"
+      }
+    },
+    {
+      "slug": "aar-scanner-followups",
+      "name": "Ads Suspension Scanner — Follow-up Reminders",
+      "channel": "email",
+      "brand": "adssuspensionrecovery.com",
+      "description": "3-stage reminder sequence to consented scanner leads (n8n Data Table aar_followup_queue), sent from info@adssuspensionrecovery.com. Every email here is a follow-up (the scan report is the first touch).",
+      "workflowIds": [
+        "sUMZ8H5bkSyFPWZm"
+      ],
+      "followup": {
+        "mode": "source_schedule",
+        "maxSteps": 3,
+        "note": "Next send date comes from next_send_date in aar_followup_queue."
+      }
+    },
+    {
+      "slug": "wa-dental-india",
+      "name": "WhatsApp — Indian Business Owners (Dental)",
+      "channel": "whatsapp",
+      "brand": "whatsapp:default",
+      "description": "Daily 10-message WAHA image+caption send from session 'default'.",
+      "workflowIds": [
+        "FHQnwH3bZk0LsWKW"
+      ],
+      "waSession": "default",
+      "followup": {
+        "mode": "none"
+      }
+    },
+    {
+      "slug": "wa-dental-webdev",
+      "name": "WhatsApp — Dental Clinics without Websites",
+      "channel": "whatsapp",
+      "brand": "whatsapp:outreach2",
+      "description": "Daily 10-message WAHA send from session 'outreach2' (website-development pitch).",
+      "workflowIds": [
+        "6H8wmqDkWWgukEln"
+      ],
+      "waSession": "outreach2",
+      "followup": {
+        "mode": "none"
+      }
+    },
+    {
+      "slug": "wa-dubai-car-recovery",
+      "name": "WhatsApp — Dubai Car Recovery / Towing",
+      "channel": "whatsapp",
+      "brand": "whatsapp:dubai_car_recovery",
+      "description": "Weekday 5-message WAHA send from session 'dubai_car_recovery'.",
+      "workflowIds": [
+        "GPhJ2BoS8BaIP3JU"
+      ],
+      "waSession": "dubai_car_recovery",
+      "followup": {
+        "mode": "none"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "key": "gads_outreach_sheet",
+      "kind": "google_sheet",
+      "name": "Google Ads International Outreach Sheet",
+      "channel": "email",
+      "rowKey": [
+        "LeadID",
+        "Email"
+      ],
+      "campaign": {
+        "rules": [
+          {
+            "column": "LeadID",
+            "regex": "^seo-",
+            "campaign": "seo-visibility-us"
+          },
+          {
+            "column": "LeadID",
+            "regex": "gads",
+            "campaign": "google-ads-services-intl"
+          }
+        ],
+        "default": "google-ads-services-intl"
+      },
+      "columns": {
+        "name": [
+          "Business"
+        ],
+        "email": [
+          "Email"
+        ],
+        "phone": [
+          "Phone"
+        ],
+        "city": [
+          "City"
+        ],
+        "category": [
+          "Vertical"
+        ],
+        "status": "Status",
+        "scheduledAt": "ScheduledSendISO",
+        "sender": "Send-from mailbox",
+        "subject": "Subject",
+        "draft": "Subject"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "^approved$",
+          "state": "queued"
+        },
+        {
+          "match": "^sent\\b",
+          "state": "sent"
+        },
+        {
+          "match": "^send failed",
+          "state": "failed"
+        },
+        {
+          "match": "^(drafted|draft|awaiting|pending)",
+          "state": "awaiting_approval"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
+          "state": "excluded"
+        }
+      ],
+      "history": "status_sent_iso",
+      "omitColumns": [
+        "TextBody",
+        "HTMLBody",
+        "errorStack"
+      ]
+    },
+    {
+      "key": "seo_audit_pipeline",
+      "kind": "google_sheet",
+      "name": "SEO Audit Outreach — Pipeline",
+      "channel": "email",
+      "rowKey": [
+        "LeadID",
+        "Domain",
+        "Email"
+      ],
+      "campaign": "seo-audit-outreach",
+      "columns": {
+        "name": [
+          "Business"
+        ],
+        "email": [
+          "Email"
+        ],
+        "website": [
+          "Website",
+          "Domain"
+        ],
+        "city": [
+          "City"
+        ],
+        "country": [
+          "Country"
+        ],
+        "category": [
+          "Category"
+        ],
+        "status": "Status",
+        "scheduledAt": "ScheduledSendAtUTC",
+        "sender": "FromMailbox",
+        "touchNumber": "TouchNumber",
+        "maxTouches": "MaxTouches",
+        "lastSentAt": "SentAt",
+        "subject": "Subject",
+        "draft": "BodyText",
+        "stopFlag": "StopSequence"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "^approved$",
+          "state": "queued"
+        },
+        {
+          "match": "^sequence complete",
+          "state": "completed"
+        },
+        {
+          "match": "^sent\\b",
+          "state": "sent"
+        },
+        {
+          "match": "^(drafted|draft|awaiting|pending)",
+          "state": "awaiting_approval"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected|stopped)",
+          "state": "excluded"
+        }
+      ],
+      "history": "touch_sequence",
+      "omitColumns": [
+        "BodyText",
+        "BodyHtml",
+        "FollowUp1Body",
+        "FollowUp2Body",
+        "FollowUp3Body"
+      ]
+    },
+    {
+      "key": "agency_india_tracker",
+      "kind": "google_sheet",
+      "name": "Agency Outreach - India Tracker",
+      "channel": "email",
+      "rowKey": [
+        "Email"
+      ],
+      "rowKeyNormalize": "email",
+      "campaign": "agency-outreach-india",
+      "columns": {
+        "name": [
+          "Agency"
+        ],
+        "email": [
+          "Email"
+        ],
+        "website": [
+          "Website"
+        ],
+        "city": [
+          "City"
+        ],
+        "status": "Status",
+        "scheduledDate": "Send Date",
+        "lastSentDate": "Date Sent",
+        "subject": "Subject",
+        "notes": "Notes",
+        "draft": "Draft Body (HTML)"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "^drafted \\(pending send\\)",
+          "state": "queued"
+        },
+        {
+          "match": "^sent\\b",
+          "state": "sent"
+        },
+        {
+          "match": "^send failed",
+          "state": "failed"
+        },
+        {
+          "match": "^(drafted|draft|awaiting|pending)",
+          "state": "awaiting_approval"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
+          "state": "excluded"
+        }
+      ],
+      "history": "status_sent_date",
+      "omitColumns": [
+        "Draft Body (HTML)"
+      ]
+    },
+    {
+      "key": "aesthetic_clinics_sheet",
+      "kind": "google_sheet",
+      "name": "Aesthetic Clinic Data",
+      "channel": "email",
+      "rowKey": [
+        "Email Id"
+      ],
+      "rowKeyNormalize": "email",
+      "campaign": "aesthetic-clinics-rkd",
+      "columns": {
+        "name": [
+          "Name"
+        ],
+        "email": [
+          "Email Id"
+        ],
+        "phone": [
+          "Mobile Number"
+        ],
+        "website": [
+          "Website"
+        ],
+        "city": [
+          "Location",
+          "State"
+        ],
+        "category": [
+          "Catagory",
+          "Category"
+        ],
+        "status": "Status",
+        "lastSentDate": "Date Sent",
+        "lastSentDateFallback": "Date",
+        "sender": "Sender"
+      },
+      "blankStatus": "ready",
+      "statusRules": [
+        {
+          "match": "^email sent",
+          "state": "sent"
+        },
+        {
+          "match": "^fu[123] sent",
+          "state": "sent"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^send failed|^failed",
+          "state": "failed"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
+          "state": "excluded"
+        }
+      ],
+      "history": "fu_status"
+    },
+    {
+      "key": "dubai_real_estate_sheet",
+      "kind": "google_sheet",
+      "name": "Dubai Real Estate Outreach",
+      "channel": "email",
+      "rowKey": [
+        "Email"
+      ],
+      "rowKeyNormalize": "email",
+      "campaign": "dubai-real-estate",
+      "columns": {
+        "name": [
+          "Company",
+          "Agency",
+          "Business",
+          "Name",
+          "Company Name"
+        ],
+        "email": [
+          "Email"
+        ],
+        "phone": [
+          "Phone"
+        ],
+        "website": [
+          "Website"
+        ],
+        "city": [
+          "City",
+          "Area"
+        ],
+        "status": "Status",
+        "scheduledDate": "Send Date",
+        "lastSentDate": "Date Sent",
+        "sender": "Send-from mailbox",
+        "subject": "Subject",
+        "draft": "Draft Body (text)"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "^drafted \\(pending send\\)",
+          "state": "queued"
+        },
+        {
+          "match": "^sent\\b",
+          "state": "sent"
+        },
+        {
+          "match": "^send failed",
+          "state": "failed"
+        },
+        {
+          "match": "^(drafted|draft|awaiting|pending)",
+          "state": "awaiting_approval"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
+          "state": "excluded"
+        }
+      ],
+      "history": "status_sent_date",
+      "omitColumns": [
+        "Draft Body (text)",
+        "Draft Body (HTML)"
+      ]
+    },
+    {
+      "key": "aar_followup_queue",
+      "kind": "n8n_data_table",
+      "name": "n8n Data Table: aar_followup_queue",
+      "channel": "email",
+      "rowKey": [
+        "email"
+      ],
+      "rowKeyNormalize": "email",
+      "campaign": "aar-scanner-followups",
+      "columns": {
+        "name": [
+          "lead_name"
+        ],
+        "email": [
+          "email"
+        ],
+        "phone": [
+          "phone"
+        ],
+        "website": [
+          "url"
+        ],
+        "status": "status",
+        "stage": "stage",
+        "nextTouchDate": "next_send_date"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "^active$",
+          "state": "sent"
+        },
+        {
+          "match": "^completed$",
+          "state": "completed"
+        },
+        {
+          "match": "^(unsub|opt.?out|stopped|cancel)",
+          "state": "excluded"
+        }
+      ],
+      "history": "stage_counter"
+    },
+    {
+      "key": "wa_indian_business_sheet",
+      "kind": "google_sheet",
+      "name": "Indian Business Owner - WhatsApp Outreach (Sheet1)",
+      "channel": "whatsapp",
+      "rowKey": [
+        "Mobile Number",
+        "Name"
+      ],
+      "rowKeyNormalize": "phone",
+      "campaign": "wa-dental-india",
+      "phoneRule": "india10",
+      "columns": {
+        "name": [
+          "Name"
+        ],
+        "phone": [
+          "Mobile Number"
+        ],
+        "email": [
+          "Email",
+          "Email Id"
+        ],
+        "city": [
+          "City",
+          "Location"
+        ],
+        "category": [
+          "Category"
+        ],
+        "status": "WhatsApp Outreach Status",
+        "draft": "Draft Message"
+      },
+      "blankStatus": "ready",
+      "requireDraft": true,
+      "statusRules": [
+        {
+          "match": "^sent$",
+          "state": "sent"
+        },
+        {
+          "match": "^failed",
+          "state": "failed"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|blocked)",
+          "state": "excluded"
+        }
+      ],
+      "history": "wa_status",
+      "omitColumns": [
+        "Draft Message"
+      ]
+    },
+    {
+      "key": "wa_dental_no_website_sheet",
+      "kind": "google_sheet",
+      "name": "Indian Business Owner - WhatsApp Outreach (Dental Clinic with No Websites)",
+      "channel": "whatsapp",
+      "rowKey": [
+        "Mobile Number",
+        "Name"
+      ],
+      "rowKeyNormalize": "phone",
+      "campaign": "wa-dental-webdev",
+      "phoneRule": "india10",
+      "columns": {
+        "name": [
+          "Name"
+        ],
+        "phone": [
+          "Mobile Number"
+        ],
+        "email": [
+          "Email",
+          "Email Id"
+        ],
+        "city": [
+          "City",
+          "Location"
+        ],
+        "category": [
+          "Category"
+        ],
+        "status": "WhatsApp Outreach Status",
+        "draft": "Draft Message"
+      },
+      "blankStatus": "ready",
+      "requireDraft": true,
+      "statusRules": [
+        {
+          "match": "^sent$",
+          "state": "sent"
+        },
+        {
+          "match": "^failed",
+          "state": "failed"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|blocked)",
+          "state": "excluded"
+        }
+      ],
+      "history": "wa_status",
+      "omitColumns": [
+        "Draft Message"
+      ]
+    },
+    {
+      "key": "wa_uae_towing_sheet",
+      "kind": "google_sheet",
+      "name": "UAE Towing Emergency Services Leads",
+      "channel": "whatsapp",
+      "rowKey": [
+        "Phone",
+        "Name"
+      ],
+      "rowKeyNormalize": "phone",
+      "campaign": "wa-dubai-car-recovery",
+      "phoneRule": "uae",
+      "columns": {
+        "name": [
+          "Name"
+        ],
+        "phone": [
+          "Phone"
+        ],
+        "email": [
+          "Email"
+        ],
+        "website": [
+          "Website"
+        ],
+        "city": [
+          "City",
+          "Location",
+          "Area"
+        ],
+        "category": [
+          "Category"
+        ],
+        "status": "WhatsApp Outreach Status",
+        "draft": "Draft Message"
+      },
+      "blankStatus": "ready",
+      "requireDraft": true,
+      "statusRules": [
+        {
+          "match": "^sent$",
+          "state": "sent"
+        },
+        {
+          "match": "^failed",
+          "state": "failed"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|blocked)",
+          "state": "excluded"
+        }
+      ],
+      "history": "wa_status",
+      "omitColumns": [
+        "Draft Message"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "id": "NJLi3kOJRaoB5Bu7",
+      "name": "Outreach Send Dispatcher",
+      "campaign": {
+        "fromSource": "gads_outreach_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via Hostinger",
+          "provider": "hostinger_api",
+          "detect": "http_error_output",
+          "sender": {
+            "field": "Send-from mailbox"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "leadKey": {
+            "field": "LeadID"
+          },
+          "subject": {
+            "field": "Subject"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "whdGAfYsvLEGCTKy",
+      "name": "SEO Audit Outreach — Send Dispatcher",
+      "campaign": {
+        "slug": "seo-audit-outreach",
+        "source": "seo_audit_pipeline"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via Hostinger (info@)",
+          "provider": "hostinger_api",
+          "detect": "http_never_error",
+          "sender": {
+            "const": "info@rohitkumarseo.tech"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "leadKey": {
+            "field": "LeadID"
+          },
+          "subject": {
+            "field": "Subject"
+          },
+          "step": {
+            "field": "TouchNumber",
+            "transform": "minus_one"
+          }
+        },
+        {
+          "node": "Send via Hostinger (seo@)",
+          "provider": "hostinger_api",
+          "detect": "http_never_error",
+          "sender": {
+            "const": "seo@rohitkumarseo.tech"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "leadKey": {
+            "field": "LeadID"
+          },
+          "subject": {
+            "field": "Subject"
+          },
+          "step": {
+            "field": "TouchNumber",
+            "transform": "minus_one"
+          }
+        }
+      ]
+    },
+    {
+      "id": "DXQsMGCz7F6Rfay0",
+      "name": "Agency Outreach - Send (adssuspensionrecovery.com)",
+      "campaign": {
+        "slug": "agency-outreach-india",
+        "source": "agency_india_tracker"
+      },
+      "sendNodes": [
+        {
+          "node": "Send from agency@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "agency@adssuspensionrecovery.com"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "email"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from agency2@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "agency2@adssuspensionrecovery.com"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "email"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from agency3@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "agency3@adssuspensionrecovery.com"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "email"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "t5DstkHdTEwbciqI",
+      "name": "RKD — Daily Outreach Sender (inactive)",
+      "campaign": {
+        "slug": "aesthetic-clinics-rkd",
+        "source": "aesthetic_clinics_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send from Info",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "info@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from Sales",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "sales@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from Sales2",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "sales2@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from Sales3",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "sales3@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send from Support",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "support@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "cpwJqG7Zoe5yQfPq",
+      "name": "RKD — Follow-up Engine",
+      "campaign": {
+        "slug": "aesthetic-clinics-rkd",
+        "source": "aesthetic_clinics_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send from Harry",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "harry@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "nextStatus",
+            "transform": "fu_status"
+          }
+        },
+        {
+          "node": "Send from Jacob",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "jacob@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "nextStatus",
+            "transform": "fu_status"
+          }
+        },
+        {
+          "node": "Send from Larry",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "larry@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "nextStatus",
+            "transform": "fu_status"
+          }
+        },
+        {
+          "node": "Send from Paul",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "paul@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "nextStatus",
+            "transform": "fu_status"
+          }
+        },
+        {
+          "node": "Send from Peter",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "peter@rkdigitalmedia.in"
+          },
+          "recipient": {
+            "field": "toEmail"
+          },
+          "leadKey": {
+            "field": "toEmail"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "nextStatus",
+            "transform": "fu_status"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Bj8UfTYGvzvSfsuX",
+      "name": "Dubai Real Estate Outreach - Send",
+      "campaign": {
+        "slug": "dubai-real-estate",
+        "source": "dubai_real_estate_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via Hostinger",
+          "provider": "hostinger_api",
+          "detect": "http_error_output",
+          "sender": {
+            "field": "Send-from mailbox"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "leadKey": {
+            "field": "Email"
+          },
+          "subject": {
+            "field": "Subject"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "EouZpJqVRO1qICgR",
+      "name": "RKD — Dubai Batch 2 Send",
+      "campaign": {
+        "slug": "dubai-clinics-batch2"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via sales@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "field": "_senderEmail"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "subject": {
+            "template": "Quick question for {{ClinicName}}"
+          },
+          "name": {
+            "field": "ClinicName"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send via sales2@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "field": "_senderEmail"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "subject": {
+            "template": "Quick question for {{ClinicName}}"
+          },
+          "name": {
+            "field": "ClinicName"
+          },
+          "step": {
+            "const": 0
+          }
+        },
+        {
+          "node": "Send via sales3@",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "field": "_senderEmail"
+          },
+          "recipient": {
+            "field": "Email"
+          },
+          "subject": {
+            "template": "Quick question for {{ClinicName}}"
+          },
+          "name": {
+            "field": "ClinicName"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "sUMZ8H5bkSyFPWZm",
+      "name": "AAR Follow-up Sender",
+      "campaign": {
+        "slug": "aar-scanner-followups",
+        "source": "aar_followup_queue"
+      },
+      "sendNodes": [
+        {
+          "node": "Send Followup Email",
+          "provider": "smtp",
+          "detect": "smtp",
+          "sender": {
+            "const": "info@adssuspensionrecovery.com"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "email"
+          },
+          "subject": {
+            "field": "email_subject"
+          },
+          "step": {
+            "field": "stage",
+            "transform": "plus_one"
+          }
+        }
+      ]
+    },
+    {
+      "id": "FHQnwH3bZk0LsWKW",
+      "name": "WAHA Send Outreach - Dental Clinics",
+      "campaign": {
+        "slug": "wa-dental-india",
+        "source": "wa_indian_business_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via WAHA",
+          "provider": "waha",
+          "detect": "waha_key",
+          "sender": {
+            "field": "session"
+          },
+          "recipient": {
+            "field": "chatId"
+          },
+          "name": {
+            "field": "rowName"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "6H8wmqDkWWgukEln",
+      "name": "WAHA Send Outreach - Dental Clinics for Website Dev",
+      "campaign": {
+        "slug": "wa-dental-webdev",
+        "source": "wa_dental_no_website_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via WAHA",
+          "provider": "waha",
+          "detect": "waha_key",
+          "sender": {
+            "field": "session"
+          },
+          "recipient": {
+            "field": "chatId"
+          },
+          "name": {
+            "field": "businessName"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "GPhJ2BoS8BaIP3JU",
+      "name": "WhatsApp Outreach for Dubai Car Recovery",
+      "campaign": {
+        "slug": "wa-dubai-car-recovery",
+        "source": "wa_uae_towing_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via WAHA",
+          "provider": "waha",
+          "detect": "waha_key",
+          "sender": {
+            "field": "session"
+          },
+          "recipient": {
+            "field": "chatId"
+          },
+          "name": {
+            "field": "businessName"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    }
+  ],
+  "inboundWorkflows": [
+    {
+      "id": "8UXe0Mx8X3VG1Xfq",
+      "name": "WAHA - Incoming Message Webhook",
+      "kind": "waha_inbound",
+      "node": "Extract Message Fields"
+    }
+  ],
+  "ignoredWorkflows": {
+    "$comment": "Workflows that send email/WhatsApp that is NOT outreach (internal digests, alerts, demos). They are excluded from the 'untracked sender' warning.",
+    "ids": [
+      "h4efi30IfpoSPpBg",
+      "iT3NDaBTlQjXyaOX",
+      "lRuUPlI1qiJffDBy",
+      "LwX1o2xLnVCEeplj",
+      "RAjyDECHKHSjVxND",
+      "BrN5YTrKW1oFTJfW",
+      "Ntc4Q2D71MRxGQS2",
+      "aXccWFVCOcDCClQM",
+      "j8dLTaPCVPiEXMWF"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules
+.next
+dist
+.git
+.env
+.env.*
+deploy/secrets
+backups
+coverage
+tests
+*.md
+!README.md
