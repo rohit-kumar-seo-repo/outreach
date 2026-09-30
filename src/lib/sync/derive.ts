@@ -78,12 +78,18 @@ export async function deriveLeads(): Promise<void> {
          select lead_id, max(sent_at) as last_reply,
                 (array_agg(sentiment order by sent_at desc) filter (where sentiment is not null))[1] as sentiment
            from mail_messages where is_outreach_reply and lead_id is not null group by lead_id),
-       wa as (select lead_id, max(sent_at) as last_reply from wa_messages where not from_me and lead_id is not null group by lead_id),
+       wa as (
+         select lead_id, max(sent_at) as last_reply,
+                (array_agg(sentiment order by sent_at desc) filter (where sentiment is not null))[1] as sentiment
+           from wa_messages where not from_me and not is_auto and lead_id is not null group by lead_id),
        bo as (select lead_id, min(occurred_at) as at from bounces where lead_id is not null and bounce_type <> 'soft' group by lead_id),
        vals as (
          select l.id,
                 greatest(em.last_reply, wa.last_reply) as last_reply,
-                em.sentiment,
+                -- Whichever channel replied most recently decides the sentiment (a lead can reply by
+                -- both email and WhatsApp; the newer classification wins, matching last_reply_at).
+                case when wa.last_reply is not null and (em.last_reply is null or wa.last_reply >= em.last_reply) then coalesce(wa.sentiment, em.sentiment)
+                     else coalesce(em.sentiment, wa.sentiment) end as sentiment,
                 bo.at as bounced_at,
                 s.reason as supp_reason
            from leads l

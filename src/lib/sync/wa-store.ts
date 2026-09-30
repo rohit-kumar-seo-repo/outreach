@@ -9,7 +9,7 @@ export interface WaMessageInput {
   hasMedia: boolean;
   ack: number | null;
   sentAt: Date;
-  source: 'waha_api' | 'n8n_webhook';
+  source: 'waha_api' | 'n8n_webhook' | 'dashboard_reply';
   /** The real number when WhatsApp addressed the chat by a privacy ID (…@lid). */
   phone?: string | null;
   /** The other side's WhatsApp profile / verified business name (inbound messages only). */
@@ -105,7 +105,7 @@ export async function reconcileWhatsApp(): Promise<void> {
   );
   await q(
     `update wa_messages w set is_auto = true
-      where not w.from_me and not w.is_auto and w.body is not null
+      where not w.from_me and not w.is_auto and not w.auto_override and w.body is not null
         and (w.body ~* $1
              or (w.body ~* $2 and (
                    exists (select 1 from wa_messages o where o.session = w.session and o.chat_id = w.chat_id and o.from_me

@@ -22,11 +22,12 @@
 - **Integration errors** are redacted before they are stored or shown: bearer tokens, API keys, passwords and key/token query parameters are masked.
 - **The n8n bridge** is protected by a header key (`X-Outreach-Bridge-Key`) and only reads sheets.
 - **Alert notifications** are on (switched on at the owner's request, migration 004) and can be switched off on the Alerts page. The worker posts alert titles and details to the n8n `outreach-dashboard-alerts` webhook with the same header key. Error messages in alerts are redacted like integration errors.
-- **The ingest endpoint** (`/api/ingest/n8n`) is disabled unless `INGEST_KEY` is set, and it rejects any request without that key.
+- **The ingest endpoint** (`/api/ingest/n8n`) and the WhatsApp send gate (`/api/ingest/waha-gate`) are both disabled unless `INGEST_KEY` is set, and both reject any request without that key (constant-time comparison). The gate is called by n8n, not the browser — see [WHATSAPP.md](WHATSAPP.md#the-send-gate).
+- **Uploaded WhatsApp template media** is served at a public, unauthenticated URL (`/api/whatsapp/media/{random id}`) because WAHA must be able to fetch it and cannot present a login cookie. The id is an unguessable UUID; nothing about the media besides its bytes and filename is exposed. This mirrors the existing n8n workflows, which already point WAHA at a public image URL on `rohitkumarseo.com`.
 
 ## Mail and WhatsApp safety
 
-- **The only email the dashboard sends is a reply you write and click Send on in the inbox.** Outreach, follow-ups and WhatsApp messages stay in your approved n8n workflows. There is no bulk, scheduled or automatic sending. Alert emails come from the n8n workflow "Outreach Dashboard — Alerts".
+- **The only messages the dashboard sends on its own are a reply you write and click Send on, in the email inbox or the WhatsApp inbox.** Outreach and follow-ups stay in your approved n8n/WAHA workflows. There is no bulk, scheduled or automatic sending. Alert emails come from the n8n workflow "Outreach Dashboard — Alerts".
 - **Reply safety** (`src/lib/mail/reply.ts`):
   - Sent through the Hostinger Email API with the server-side token; the browser never sees a credential.
   - The sender must be a connected mailbox (Hostinger API, last sync OK) that holds a copy of the conversation, so the reply stays in the thread. Other mailboxes are listed but disabled, with the reason.
@@ -34,7 +35,14 @@
   - Every submit carries a one-time key: a double click or a resubmitted form returns the first result instead of sending again. The same text to the same conversation is refused for 10 minutes.
   - The send is never retried automatically. A timeout is recorded as "not confirmed" and confirmed later from the Sent-folder copy.
   - Every attempt (sent, refused or unconfirmed) is stored in `mail_replies` and written to the audit log.
-- **Limits and alerts never change sending.** They do not pause workflows, edit sheets or stop follow-ups in n8n.
+- **WhatsApp reply safety** (`src/lib/whatsapp/reply.ts`), the same shape as email's:
+  - Sent through WAHA's API with the server-side `WAHA_API_KEY`; the browser never sees it.
+  - The sending account must be the WAHA session that actually holds the chat, and it must be connected (`WORKING`) right now.
+  - One text message, no media, no attachments. A number marked unsubscribed/do-not-contact is blocked.
+  - A one-time key prevents a double send; the same text to the same chat is refused for 10 minutes.
+  - Every attempt is stored in `wa_replies` and written to the audit log.
+- **WhatsApp campaign controls** (pause, daily cap, send window) are enforced by n8n calling the dashboard, not the other way round — see [WHATSAPP.md](WHATSAPP.md#the-send-gate) for exactly what that changed in the three send workflows and how to roll it back.
+- **Limits and alerts never change sending on their own.** A WhatsApp campaign's pause/cap/window is the one exception, and only once you set `INGEST_KEY` — see above. Email sending limits and alerts still never pause workflows, edit sheets or stop follow-ups.
 - **Mailbox access is otherwise read-only.**
   - IMAP uses `EXAMINE` and `BODY.PEEK`.
   - The Hostinger Email API is read with GET. The only writes are sending a reply (the API also flags the answered message `\Answered`) and, if reading a body ever marks an unread message read, putting the unread flag back.
@@ -49,9 +57,9 @@ These were found while inspecting the existing setup. None of them was changed b
 1. **The repository is public.**
    - It holds no secrets. It does describe your campaigns, mailbox addresses and n8n workflow IDs.
    - Consider making it private. If you do, switch the compose `build:` to a pre-built image.
-2. **The WAHA API key is written directly into three n8n workflows**, and it is visible in the WAHA project environment.
-   - Move it to an n8n credential.
-   - Rotate it after the dashboard has its own copy.
+2. **The WAHA API key is written directly into three n8n workflows**, and it is visible in the WAHA project environment. The same three workflows now also carry the dashboard's `INGEST_KEY` inline (the "Check Send Allowed" node added 30 Sep 2026, see [WHATSAPP.md](WHATSAPP.md#the-send-gate)), for the same reason: n8n's MCP tools cannot create a Header Auth credential.
+   - Move both to n8n credentials.
+   - Rotate the WAHA key after the dashboard has its own copy; rotate `INGEST_KEY` (in both the dashboard's environment and the three workflows) if it is ever exposed.
 3. **The "Outreach Metrics Read API" webhook in n8n has no authentication.** Add Header Auth or deactivate it.
 4. **The Hostinger API token used for automation can read every Docker project's environment**, including other apps' payment keys and passwords. Treat that token as a master key, and rotate it if it has been shared.
 5. **The SEO dispatcher's HTTP node uses "never error".** An API error can be written back to the sheet as "Sent". The dashboard counts a send as accepted only when the recorded response shows success.

@@ -55,3 +55,11 @@ The **Data coverage** page shows the result per campaign and day: complete, appr
    - The dashboard always uses the real execution time.
 8. **Replies are not tracked anywhere automatically.** The Daily Outreach Summary email says replies are logged by hand in the CRM. The dashboard reads them from the mailboxes once they are connected.
 9. **Execution retention is about 6 days.** Connect the n8n API soon, so that exact send history stops expiring.
+
+## WhatsApp Outreach Control Center (30 Sep 2026)
+
+Full inspection and design notes are in [WHATSAPP.md](WHATSAPP.md). In short:
+
+10. **Two of three WhatsApp sessions (`outreach2`, `dubai_car_recovery`) have no inbound webhook registered in WAHA**, only `default` does (and it points at a path, `…/waha-incoming-test`, that differs from the production workflow's `…/waha-incoming`). Their replies still arrive via the periodic WAHA sync, just up to ~15 minutes later than a live webhook would. The Accounts tab shows this live per session.
+11. **Every WhatsApp send recorded so far shows WAHA's ack stuck at "Pending"** — WAHA has not reported delivered/read for any of them. Reports shows this honestly rather than estimating delivered/read.
+12. **The old lead-count display, not the underlying data, was the problem.** Every lead already had one correct status; the dashboard just was not showing all of them (duplicates and the needs-draft/ready split were folded into "remaining"). The reconciled funnel on the Campaigns tab fixes the display, not the data.

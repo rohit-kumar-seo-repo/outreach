@@ -21,7 +21,7 @@ It never sends outreach itself; the only email it sends is a reply you write in 
 | Sending volume | Daily sends per mailbox and per domain, with limits you set |
 | Data coverage | Which days' numbers are complete, approximate or unknown, per campaign |
 | Spreadsheets | Real columns and statuses for each sheet, plus how "contacted" and "remaining" are calculated |
-| WhatsApp | WAHA sessions, messages sent, ticks and replies, once WAHA is connected |
+| WhatsApp | A control center, not just a viewer: Overview (what needs attention today), Campaigns (reconciled lead funnel, pause/resume that actually gates sending, daily caps, send windows), Inbox (needs-reply triage, safe manual replies, classification), Templates (reusable messages with real-data preview), Accounts (session health, QR connect), Reports (volume, delivery status, response time, outcomes) — see [docs/WHATSAPP.md](docs/WHATSAPP.md) |
 | Integrations, Reports, Settings | Sync status and errors, CSV exports, sessions |
 
 ## Docs
@@ -30,6 +30,7 @@ It never sends outreach itself; the only email it sends is a reply you write in 
 - [docs/METRICS.md](docs/METRICS.md): the exact definition of every number.
 - [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md): which system feeds what, what history can be imported, and the inspection findings.
 - [docs/SECURITY.md](docs/SECURITY.md): login, secrets, read-only mail access, and open risks.
+- [docs/WHATSAPP.md](docs/WHATSAPP.md): the WhatsApp Outreach Control Center — lead-funnel reconciliation, the send gate (pause/cap/window), manual replies and classification, templates and media, accounts, reports.
 
 ## Stack
 

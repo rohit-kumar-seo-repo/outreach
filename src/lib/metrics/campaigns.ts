@@ -47,6 +47,13 @@ export interface CampaignStats {
   wonCurrencies: string[];
   mailboxes: string[];
   lastSendAt: Date | null;
+  // WhatsApp Control Center: dashboard-owned pause/cap, independent of the auto-derived `status`.
+  controlPausedAt: Date | null;
+  controlPausedBy: string | null;
+  controlPauseReason: string | null;
+  dailyCap: number | null;
+  templateId: number | null;
+  sendWindow: { days?: number[]; startLocal?: string; endLocal?: string };
 }
 
 export interface CampaignQuery {
@@ -87,6 +94,8 @@ export async function campaignStats(opts: CampaignQuery = {}): Promise<CampaignS
                   max(v.occurred_at) as last_at
              from v_sends v where ${cohort ? 'v.lead_id in (select id from lc)' : 'true'} group by v.campaign_id, v.step)
      select c.id, c.slug, c.name, c.channel, c.brand, c.status, c.description, c.started_at as "startedAt", c.config,
+       c.control_paused_at as "controlPausedAt", c.control_paused_by as "controlPausedBy", c.control_pause_reason as "controlPauseReason",
+       c.daily_cap as "dailyCap", c.template_id as "templateId", c.send_window as "sendWindow",
        (select count(*)::int from lc where lc.campaign_id = c.id and lc.present_in_source) as "leadsLoaded",
        (select count(*)::int from lc where lc.campaign_id = c.id and lc.present_in_source
            and lc.status not in ('invalid', 'duplicate', 'excluded', 'unsubscribed')) as eligible,

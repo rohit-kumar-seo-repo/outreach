@@ -54,7 +54,7 @@ Set these in the project's **Environment** tab in hPanel. They live only on the 
 | `HOSTINGER_MAIL_TOKENS`, `HOSTINGER_MAIL_TOKENS_2` … `_6` | for mailboxes | Hostinger Email API tokens, one per variable. One token covers the mailboxes of one mail order (rohitkumarseo.tech, adssuspensionrecovery.com, rkdigitalmedia.in). Create each with scope *All mailboxes*. |
 | `IMAP_ACCOUNTS_JSON` | alternative to tokens | `[{"address":"agency@adssuspensionrecovery.com","password":"…"}]`. Host defaults to `imap.hostinger.com:993`. Access is read-only: messages are never marked read or moved. |
 | `WAHA_BASE_URL`, `WAHA_API_KEY` | for WhatsApp | WAHA's address, e.g. `http://host.docker.internal:<WAHA host port>`, and its API key. |
-| `INGEST_KEY` | optional | Enables `POST /api/ingest/n8n` for workflows that push events. |
+| `INGEST_KEY` | for the WhatsApp send gate | Enables `POST /api/ingest/n8n` (workflows that push events) and `GET /api/ingest/waha-gate` (the pause/cap/window check the WhatsApp send workflows now make before every send — see [WHATSAPP.md](WHATSAPP.md#the-send-gate)). Without it, that check always returns "allowed" and campaign controls have no effect on sending. |
 | `BACKUP_AT`, `BACKUP_RETENTION_DAYS` | no | Nightly backup time (default `02:30`) and retention in days (default 14). |
 
 \* Set one of `ADMIN_PASSWORD` or `ADMIN_PASSWORD_HASH`.
@@ -78,10 +78,11 @@ Each source is optional. Anything not connected shows "Not connected" on the das
    - Inbox, Sent and Junk are read.
    - Messages are fetched without changing their read status.
    - Replying from the inbox works for every mailbox a Hostinger Email API token covers; nothing else to set up. IMAP-only mailboxes stay read-only (the composer says so).
-4. **WhatsApp.** Set `WAHA_BASE_URL` and `WAHA_API_KEY`.
+4. **WhatsApp.** Set `WAHA_BASE_URL` and `WAHA_API_KEY`. See [WHATSAPP.md](WHATSAPP.md) for the full control center; in short:
    - Chats with contacted leads are read from WAHA; incoming messages also arrive through the "WAHA - Incoming Message Webhook" executions.
    - Hidden numbers (WhatsApp privacy IDs) are resolved from the webhook data or WAHA's `/api/{session}/lids` endpoint.
-   - The dashboard never sends WhatsApp messages.
+   - Campaign sending stays entirely in n8n/WAHA. The only message the dashboard sends on its own is a single manual reply from the WhatsApp inbox, the same way it does for email.
+   - Set `INGEST_KEY` (above) so a pause, daily cap or send window set on the dashboard is actually enforced by the n8n send workflows.
 5. **Alert emails.** Switched on 29 Sep 2026: the workflow is active and migration 004 ticked the setting. To set this up again from scratch:
    1. In n8n, open "Outreach Dashboard — Alerts". It was created **inactive**, with the bridge's Header Auth credential and the mailbox API credential of the Daily Outreach Summary already selected.
    2. Activate it.
