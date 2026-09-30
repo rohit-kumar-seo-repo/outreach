@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // Optimistic gate only: redirects visitors without a session cookie to /login.
 // The real check (session row in Postgres, not expired, not revoked) runs in every
 // protected layout, route handler and server action via requireSession().
-const PUBLIC = [/^\/login$/, /^\/api\/health$/, /^\/api\/ingest\//, /^\/favicon\.svg$/, /^\/robots\.txt$/];
+// /api/whatsapp/media is deliberately public: WAHA (outside this app, no session cookie) must be
+// able to fetch a template's uploaded media by its unguessable id — see docs/WHATSAPP.md.
+const PUBLIC = [/^\/login$/, /^\/api\/health$/, /^\/api\/ingest\//, /^\/api\/whatsapp\/media\//, /^\/favicon\.svg$/, /^\/robots\.txt$/];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
