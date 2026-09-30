@@ -30,6 +30,15 @@ describe('renderTemplate', () => {
     const r = renderTemplate('Just a normal message.', {});
     expect(r).toEqual({ text: 'Just a normal message.', missing: [], unknown: [] });
   });
+
+  it('matches a real sheet column header, spaces and all, case-insensitively', () => {
+    const r = renderTemplate('Hi {{Name}}, calling about {{Mobile Number}}', { Name: 'Priya', 'Mobile Number': '9871530594' });
+    expect(r.text).toBe('Hi Priya, calling about 9871530594');
+    expect(r.missing).toEqual([]);
+    expect(r.unknown).toEqual([]);
+    // {{name}} (lowercase) resolves against the same "Name" field.
+    expect(renderTemplate('{{name}}', { Name: 'Priya' }).text).toBe('Priya');
+  });
 });
 
 describe('sampleFields', () => {
@@ -48,5 +57,19 @@ describe('sampleFields', () => {
     expect(f.firstName).toBeNull();
     expect(f.name).toBeNull();
     expect(f.phone).toBe('+91 98715 30594');
+  });
+
+  it('also exposes the row exactly as the sheet had it, so {{Name}}/{{Mobile Number}} work directly', () => {
+    const f = sampleFields({
+      name: 'Priya Sharma',
+      city: 'Delhi',
+      category: 'Dental',
+      phone: '919871530594',
+      raw: { Name: 'Priya Sharma', 'Mobile Number': '9871530594', City: 'Delhi', 'Draft Message': 'ignored but present' },
+    });
+    expect(f.Name).toBe('Priya Sharma');
+    expect(f['Mobile Number']).toBe('9871530594');
+    // curated aliases still present alongside the raw columns
+    expect(f.firstName).toBe('Priya');
   });
 });

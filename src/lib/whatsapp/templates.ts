@@ -4,6 +4,9 @@
 import { one, q } from '../db';
 import { formatPhone } from '../normalize';
 
+// A few convenience aliases on top of whatever columns your sheets actually have. "name" is kept
+// distinct from "business" (both currently read the Name column) so a template reads naturally
+// either way; if a sheet ever has a separate business-name column, point business at it here.
 export const TEMPLATE_FIELDS = ['firstName', 'name', 'business', 'city', 'category', 'phone'] as const;
 export type TemplateField = (typeof TEMPLATE_FIELDS)[number];
 
@@ -12,11 +15,15 @@ export interface TemplateLeadSample {
   city: string | null;
   category: string | null;
   phone: string | null;
+  /** The row exactly as the sheet had it — e.g. {"Name": "...", "Mobile Number": "...", "City": "..."} —
+   *  so a template can use {{Name}} or {{Mobile Number}} directly, matching the sheet's own headers. */
+  raw?: Record<string, unknown>;
 }
 
-export function sampleFields(lead: TemplateLeadSample): Record<TemplateField, string | null> {
+/** The curated aliases plus every raw column value, stringified. A placeholder can be either. */
+export function sampleFields(lead: TemplateLeadSample): Record<string, string | null> {
   const name = lead.name?.trim() || null;
-  return {
+  const fields: Record<string, string | null> = {
     firstName: name ? name.split(/\s+/)[0] : null,
     name,
     business: name,
@@ -24,9 +31,17 @@ export function sampleFields(lead: TemplateLeadSample): Record<TemplateField, st
     category: lead.category?.trim() || null,
     phone: formatPhone(lead.phone) ?? lead.phone ?? null,
   };
+  for (const [k, v] of Object.entries(lead.raw ?? {})) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (s) fields[k] = s;
+  }
+  return fields;
 }
 
-const PLACEHOLDER = /\{\{\s*([a-zA-Z]+)\s*\}\}/g;
+// Any text between {{ }} except braces themselves, so a real sheet column header like
+// "{{Mobile Number}}" matches, not just single-word aliases like "{{firstName}}".
+const PLACEHOLDER = /\{\{\s*([^{}]+?)\s*\}\}/g;
 
 export interface RenderResult {
   text: string;
@@ -37,16 +52,21 @@ export interface RenderResult {
 }
 
 /** Fills {{field}} placeholders; a missing value is kept as "{{field}}" so it is obvious in a preview,
- *  never guessed or dropped. Callers must check `missing`/`unknown` before treating a send as ready. */
+ *  never guessed or dropped. Matches case-insensitively (so "{{name}}" and "{{Name}}" both work) but
+ *  renders using the field's own value as stored. Callers must check `missing`/`unknown` before
+ *  treating a send as ready. */
 export function renderTemplate(bodyText: string, fields: Partial<Record<string, string | null>>): RenderResult {
+  const byLower = new Map<string, string | null>();
+  for (const [k, v] of Object.entries(fields)) byLower.set(k.toLowerCase(), v ?? null);
   const missing = new Set<string>();
   const unknown = new Set<string>();
-  const text = bodyText.replace(PLACEHOLDER, (full, key: string) => {
-    if (!(key in fields)) {
+  const text = bodyText.replace(PLACEHOLDER, (full, rawKey: string) => {
+    const key = rawKey.trim();
+    if (!byLower.has(key.toLowerCase())) {
       unknown.add(key);
       return full;
     }
-    const v = fields[key];
+    const v = byLower.get(key.toLowerCase());
     if (!v) {
       missing.add(key);
       return full;
@@ -54,6 +74,15 @@ export function renderTemplate(bodyText: string, fields: Partial<Record<string, 
     return v;
   });
   return { text, missing: [...missing], unknown: [...unknown] };
+}
+
+/** Every column name seen across your WhatsApp leads' source rows, so the template editor can show
+ *  "these are the placeholders you actually have" instead of a fixed guessed list. */
+export async function availablePlaceholders(): Promise<string[]> {
+  const rows = await q<{ k: string }>(
+    `select distinct jsonb_object_keys(l.raw) as k from leads l join campaigns c on c.id = l.campaign_id where c.channel = 'whatsapp'`,
+  );
+  return [...TEMPLATE_FIELDS, ...rows.map((r) => r.k)].filter((v, i, arr) => arr.indexOf(v) === i).sort((a, b) => a.localeCompare(b));
 }
 
 export interface WaTemplate {
@@ -88,8 +117,10 @@ export async function listTemplates(): Promise<WaTemplate[]> {
 /** One real lead from a WhatsApp campaign, used to prefill the preview form with real values
  *  instead of made-up placeholders. Returns null if no WhatsApp leads have been loaded yet. */
 export async function sampleLead(): Promise<TemplateLeadSample | null> {
+  // `l.name`, not bare `name` — campaigns has its own `name` column, so the unqualified
+  // reference was ambiguous and made this (and every page that calls it) throw.
   return one<TemplateLeadSample>(
-    `select name, city, category, phone from leads l join campaigns c on c.id = l.campaign_id
+    `select l.name, l.city, l.category, l.phone, l.raw from leads l join campaigns c on c.id = l.campaign_id
       where c.channel = 'whatsapp' and l.name is not null order by l.id desc limit 1`,
   );
 }

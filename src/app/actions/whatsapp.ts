@@ -139,17 +139,17 @@ export async function uploadWaMedia(form: FormData): Promise<{ error?: string; m
   }
 }
 
+/** Every form field except bodyText is a placeholder name → sample value, so this works with
+ *  whatever columns the editor shows (the curated aliases and/or a real lead's actual sheet
+ *  columns) without needing to know their names in advance. */
 export async function previewTemplateAction(form: FormData): Promise<{ text: string; missing: string[]; unknown: string[] }> {
   await guard();
   const bodyText = String(form.get('bodyText') ?? '');
-  const fields: Record<string, string | null> = {
-    firstName: String(form.get('firstName') ?? '') || null,
-    name: String(form.get('name') ?? '') || null,
-    business: String(form.get('business') ?? '') || null,
-    city: String(form.get('city') ?? '') || null,
-    category: String(form.get('category') ?? '') || null,
-    phone: String(form.get('phone') ?? '') || null,
-  };
+  const fields: Record<string, string | null> = {};
+  for (const [key, value] of form.entries()) {
+    if (key === 'bodyText') continue;
+    fields[key] = String(value) || null;
+  }
   return renderTemplate(bodyText, fields);
 }
 

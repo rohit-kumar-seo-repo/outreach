@@ -128,12 +128,23 @@ WhatsApp message sets — no extra wiring needed for that part.
 
 ## Templates and media
 
-`wa_templates` store a name, a message type (text/image/document/video), body text with
-`{{firstName}}`/`{{name}}`/`{{business}}`/`{{city}}`/`{{category}}`/`{{phone}}` placeholders, and
-either an uploaded file or a link to one you host yourself. `renderTemplate()`
-(`src/lib/whatsapp/templates.ts`, unit-tested) fills placeholders it has a value for and leaves the
-rest as `{{placeholder}}` — visibly, in the editor's live preview against a real lead's data where
-one exists — rather than ever sending a blank or guessed value.
+`wa_templates` store a name, a message type (text/image/document/video, derived automatically from
+whether a file is attached and what kind it is — there is no separate "message type" choice to get
+wrong), body text with `{{placeholder}}`s, and either an uploaded file or a link to one you host
+yourself.
+
+**Placeholders match your sheet's own column headers**, not a fixed list: `{{Name}}`,
+`{{Mobile Number}}`, `{{City}}`, `{{Category}}` — whatever a column is called in the Google Sheet —
+work directly, case-insensitively, because they are resolved against `leads.raw` (the row exactly
+as the sheet had it, already stored for every lead). A handful of convenience aliases
+(`{{firstName}}`, `{{name}}`, `{{business}}`, `{{city}}`, `{{category}}`, `{{phone}}`) sit alongside
+them for when you don't want to think about the exact column name. The editor lists every column
+name actually seen across your WhatsApp sheets (`availablePlaceholders()`) as click-to-insert chips,
+so what is usable is never a guess. `renderTemplate()` (`src/lib/whatsapp/templates.ts`,
+unit-tested) fills whichever it has a value for and leaves the rest as `{{placeholder}}` — visibly,
+in the editor's live preview against a real lead's data where one exists — rather than ever sending
+a blank or guessed value; an unknown placeholder (a typo, or a column no WhatsApp sheet has) is
+flagged separately so it's clear it can never be filled.
 
 **Uploaded media is stored in Postgres** (`wa_media`, a `bytea` column), not on the app container's
 disk: the production release volume is mounted read-only (see `deploy/hostinger/docker-compose.yml`),

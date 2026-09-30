@@ -191,4 +191,24 @@ d('WhatsApp control center', () => {
     await deriveLeads();
     expect((await one<{ status: string }>(`select status from leads where id = $1`, [lead]))!.status).toBe('not_interested');
   });
+
+  it('the template editor loads a real lead\'s raw sheet columns without an ambiguous-column error', async () => {
+    // Regression test: `campaigns` also has a `name` column, so an unqualified "select name, ..."
+    // joined against campaigns crashed this page in production (42702, column reference ambiguous).
+    const { q } = db;
+    await q(
+      `insert into leads (campaign_id, source_row_key, name, city, category, phone, phone_norm, wa_chat_id, status, raw)
+       values ($1,'sample-lead','Priya Sharma','Delhi','Dental',null,'9800011122','919800011122@c.us','ready',$2)`,
+      [campaignId, JSON.stringify({ Name: 'Priya Sharma', 'Mobile Number': '9800011122', City: 'Delhi', Category: 'Dental' })],
+    );
+    const { sampleLead, sampleFields, availablePlaceholders, renderTemplate } = await import('@/lib/whatsapp/templates');
+    const lead = await sampleLead();
+    expect(lead).toMatchObject({ name: 'Priya Sharma', city: 'Delhi' });
+    const fields = sampleFields(lead!);
+    expect(fields.Name).toBe('Priya Sharma');
+    expect(fields['Mobile Number']).toBe('9800011122');
+    const placeholders = await availablePlaceholders();
+    expect(placeholders).toEqual(expect.arrayContaining(['Name', 'Mobile Number', 'City', 'Category']));
+    expect(renderTemplate('Hi {{Name}}, following up on {{Mobile Number}}', fields).text).toBe('Hi Priya Sharma, following up on 9800011122');
+  });
 });
