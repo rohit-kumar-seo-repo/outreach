@@ -164,6 +164,7 @@ export async function syncN8nExecutions(): Promise<void> {
       const r = await syncWorkflowExecutions(inbound.id, (e) => processWahaInbound(e, inbound.node));
       seen += r.seen;
       written += r.written;
+      await resolveIntegrationErrors(`n8n:wf:${inbound.id}:fetch`);
     } catch (err) {
       failures.push(`${inbound.name}: ${(err as Error).message}`);
       await recordIntegrationError(`n8n:wf:${inbound.id}:fetch`, `Fetching executions for "${inbound.name}" failed: ${(err as Error).message}`);
@@ -209,6 +210,7 @@ export async function scanN8nWorkflows(): Promise<void> {
     }
     await finishRun(runId, 'success', { seen: all.length });
     await markSource('n8n:workflows', true, null, { rowCount: all.length });
+    await resolveIntegrationErrors('n8n:workflows');
   } catch (err) {
     await finishRun(runId, 'error', {}, (err as Error).message);
     await markSource('n8n:workflows', false, (err as Error).message);

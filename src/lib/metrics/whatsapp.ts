@@ -137,7 +137,7 @@ export async function campaignFunnel(campaignId: number): Promise<CampaignFunnel
 export interface WaAttentionCampaign {
   slug: string;
   name: string;
-  reason: 'paused' | 'stuck' | 'low_leads';
+  reason: 'paused' | 'stuck' | 'low_leads' | 'needs_drafts';
   detail: string;
 }
 
@@ -181,10 +181,11 @@ export async function waAttention(): Promise<WaAttention> {
       [env.timezone, today],
     ),
     q<{ name: string; status: string | null; phone: string | null }>(`select name, status, phone from wa_sessions where status is distinct from 'WORKING' order by name`),
-    q<{ slug: string; name: string; controlPausedAt: Date | null; remaining: number; contacted: number }>(
+    q<{ slug: string; name: string; controlPausedAt: Date | null; remaining: number; contacted: number; needsDraft: number }>(
       `select c.slug, c.name, c.control_paused_at as "controlPausedAt",
               (select count(*)::int from leads l where l.campaign_id = c.id and l.present_in_source and l.status in ('ready','queued','awaiting_approval','needs_draft')) as remaining,
-              (select count(*)::int from leads l where l.campaign_id = c.id and l.sends_accepted > 0) as contacted
+              (select count(*)::int from leads l where l.campaign_id = c.id and l.sends_accepted > 0) as contacted,
+              (select count(*)::int from leads l where l.campaign_id = c.id and l.present_in_source and l.status = 'needs_draft') as "needsDraft"
          from campaigns c where c.channel = 'whatsapp' order by c.name`,
     ),
     q<{ campaignSlug: string; campaignName: string; session: string; sentToday: number; dailyCap: number | null }>(
@@ -211,6 +212,17 @@ export async function waAttention(): Promise<WaAttention> {
     if (c.controlPausedAt) attentionCampaigns.push({ slug: c.slug, name: c.name, reason: 'paused', detail: 'Paused from the dashboard.' });
     else if (c.remaining === 0 && c.contacted > 0) attentionCampaigns.push({ slug: c.slug, name: c.name, reason: 'stuck', detail: 'No eligible leads left to send to.' });
     else if (c.remaining > 0 && c.remaining < 20) attentionCampaigns.push({ slug: c.slug, name: c.name, reason: 'low_leads', detail: `Only ${c.remaining} eligible lead(s) remaining.` });
+    // A pile of leads stuck on "needs a message drafted" never gets smaller on its own — nothing
+    // sends them until each row has a Draft Message, so a large backlog is worth surfacing even
+    // though "remaining" looks healthy.
+    if (c.needsDraft >= 20) {
+      attentionCampaigns.push({
+        slug: c.slug,
+        name: c.name,
+        reason: 'needs_drafts',
+        detail: `${c.needsDraft} lead(s) have no drafted message yet, so they will never be picked up. Link a template on this campaign's page to see how many it would cover.`,
+      });
+    }
   }
   const total = needsReply + attentionCampaigns.length + sessions.length;
   return {

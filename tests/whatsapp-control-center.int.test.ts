@@ -211,4 +211,22 @@ d('WhatsApp control center', () => {
     expect(placeholders).toEqual(expect.arrayContaining(['Name', 'Mobile Number', 'City', 'Category']));
     expect(renderTemplate('Hi {{Name}}, following up on {{Mobile Number}}', fields).text).toBe('Hi Priya Sharma, following up on 9800011122');
   });
+
+  it('templateCoverage checks a template against real needs_draft leads rather than assuming', async () => {
+    const { q, one } = db;
+    const template = (await one<{ id: number }>(
+      `insert into wa_templates (name, kind, body_text, created_by, updated_by) values ('Coverage test','text','Hi {{firstName}}, following up for {{City}}','t','t') returning id`,
+    ))!.id;
+    await q(
+      `insert into leads (campaign_id, source_row_key, name, city, status, present_in_source, raw) values
+         ($1,'cov-1','Amit Verma','Pune','needs_draft',true,$2),
+         ($1,'cov-2',null,null,'needs_draft',true,'{}'::jsonb)`,
+      [campaignId, JSON.stringify({ City: 'Pune' })],
+    );
+    const { templateCoverage } = await import('@/lib/whatsapp/templates');
+    const result = await templateCoverage(campaignId, template);
+    expect(result.needsDraft).toBeGreaterThanOrEqual(2);
+    expect(result.fullyCoverable).toBeGreaterThanOrEqual(1); // cov-1 has both firstName and City
+    expect(result.partiallyCoverable).toBeGreaterThanOrEqual(1); // cov-2 has neither
+  });
 });

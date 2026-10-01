@@ -5,7 +5,7 @@ import { Card, fmt, Notice, PageHeader, Pill, RateCell } from '@/components/ui';
 import { q } from '@/lib/db';
 import { campaignBySlug } from '@/lib/metrics/campaigns';
 import { campaignFunnel } from '@/lib/metrics/whatsapp';
-import { listTemplates } from '@/lib/whatsapp/templates';
+import { listTemplates, templateCoverage } from '@/lib/whatsapp/templates';
 import { formatDateTime, relativeTime } from '@/lib/time';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -15,7 +15,7 @@ export default async function WaCampaignDetailPage({ params }: { params: Promise
   const c = await campaignBySlug(slug);
   if (!c || c.channel !== 'whatsapp') notFound();
   const workflowIds = (c.config.workflowIds as string[] | undefined) ?? [];
-  const [funnel, templates, workflows, lastExec, source, session] = await Promise.all([
+  const [funnel, templates, workflows, lastExec, source, session, coverage] = await Promise.all([
     campaignFunnel(c.id),
     listTemplates(),
     q<{ id: string; name: string | null; active: boolean | null }>('select id, name, active from n8n_workflows where id = any($1)', [workflowIds]),
@@ -28,6 +28,7 @@ export default async function WaCampaignDetailPage({ params }: { params: Promise
       [c.id],
     ),
     q<{ status: string | null }>('select status from wa_sessions where name = $1', [String(c.config.waSession ?? '')]),
+    c.templateId ? templateCoverage(c.id, c.templateId) : Promise.resolve(null),
   ]);
   const paused = !!c.controlPausedAt;
   const window = c.sendWindow ?? {};
@@ -217,6 +218,14 @@ export default async function WaCampaignDetailPage({ params }: { params: Promise
               Templates
             </Link>{' '}
             tab.
+            {coverage && coverage.needsDraft > 0 && (
+              <>
+                {' '}
+                It could fill in <strong>{coverage.fullyCoverable}</strong> of the {coverage.needsDraft} lead(s) still waiting on a drafted message right now
+                {coverage.partiallyCoverable > 0 ? ` (${coverage.partiallyCoverable} more are missing at least one field this template needs)` : ''}. This is a
+                read-only check — nothing is written back to the sheet yet; ask if you want that built.
+              </>
+            )}
           </Notice>
         </div>
       )}

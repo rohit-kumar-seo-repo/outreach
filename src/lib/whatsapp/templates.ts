@@ -159,3 +159,30 @@ export async function deleteMedia(id: string): Promise<void> {
   await q(`update wa_templates set media_id = null where media_id = $1`, [id]);
   await q(`delete from wa_media where id = $1`, [id]);
 }
+
+export interface TemplateCoverage {
+  needsDraft: number;
+  /** Of those, how many this template could draft right now with every placeholder filled. */
+  fullyCoverable: number;
+  /** Still short at least one field (shown so it's clear a few leads would still need a manual look). */
+  partiallyCoverable: number;
+}
+
+/** How many of a campaign's "needs a message drafted" leads this template could actually fill,
+ *  checked against each lead's real row data — not just assumed. Read-only: writing the result
+ *  back into the leads' sheet (so n8n would actually send it) is a separate, explicit step. */
+export async function templateCoverage(campaignId: number, templateId: number): Promise<TemplateCoverage> {
+  const [template, leads] = await Promise.all([
+    one<{ bodyText: string }>(`select body_text as "bodyText" from wa_templates where id = $1`, [templateId]),
+    q<TemplateLeadSample>(`select name, city, category, phone, raw from leads where campaign_id = $1 and present_in_source and status = 'needs_draft'`, [campaignId]),
+  ]);
+  if (!template) return { needsDraft: leads.length, fullyCoverable: 0, partiallyCoverable: 0 };
+  let fullyCoverable = 0;
+  let partiallyCoverable = 0;
+  for (const lead of leads) {
+    const { missing } = renderTemplate(template.bodyText, sampleFields(lead));
+    if (missing.length === 0) fullyCoverable++;
+    else partiallyCoverable++;
+  }
+  return { needsDraft: leads.length, fullyCoverable, partiallyCoverable };
+}

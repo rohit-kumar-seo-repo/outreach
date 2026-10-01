@@ -96,7 +96,10 @@ export async function syncOneSource(src: SourceDef): Promise<{ rows: number; his
   if (res.rows.length === 0 && (source.row_count ?? 0) > 10) {
     throw new Error(`Bridge returned 0 rows for ${src.key} but ${source.row_count} were present last time; keeping existing data`);
   }
-  const missingCols = [src.columns.status, ...(src.columns.email ?? []).slice(0, 1)].filter((col) => res.rows.length > 0 && !columns.includes(col));
+  // Email is only a required column for email campaigns; WhatsApp sheets contact leads by phone
+  // and commonly have no email column at all, so it is never "missing" there.
+  const requiredCols = src.channel === 'email' ? [src.columns.status, ...(src.columns.email ?? []).slice(0, 1)] : [src.columns.status];
+  const missingCols = requiredCols.filter((col) => res.rows.length > 0 && !columns.includes(col));
   if (missingCols.length) {
     await recordIntegrationError(`sheet:${src.key}:columns`, `${src.name}: expected column(s) not found: ${missingCols.join(', ')}`, { columns }, 'warning');
   } else {
