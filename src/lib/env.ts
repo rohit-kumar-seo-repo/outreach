@@ -165,6 +165,7 @@ export const env = {
       waha: int('SYNC_WAHA_SECONDS', 900),
       derive: int('SYNC_DERIVE_SECONDS', 300),
       workflows: int('SYNC_WORKFLOW_SCAN_SECONDS', 3600),
+      workflowHealth: int('SYNC_WORKFLOW_HEALTH_SECONDS', 900),
       alerts: int('SYNC_ALERTS_SECONDS', 300),
     };
   },

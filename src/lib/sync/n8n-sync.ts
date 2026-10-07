@@ -175,6 +175,40 @@ export async function syncN8nExecutions(): Promise<void> {
   await markSource('n8n:executions', status !== 'error', failures.join(' | ') || null);
 }
 
+/**
+ * Health only, for every active n8n workflow the registry does not track (new or unrelated
+ * automations): records execution status and n8n's own error text, same as a tracked sender, but
+ * never extracts send attempts — we don't know these workflows' node shapes, so nothing here can
+ * write to leads or campaigns. This is what lets "n8n workflow failing" alerts (alerts.ts) and the
+ * Integrations page cover every workflow, not just the ones in config/registry.json.
+ */
+export async function syncUntrackedWorkflowExecutions(): Promise<void> {
+  const runId = await startRun('n8n_workflow_health', 'n8n:workflow_health');
+  if (!n8nConfigured()) {
+    await finishRun(runId, 'skipped', {}, 'N8N_BASE_URL / N8N_API_KEY not configured');
+    return;
+  }
+  const reg = registry();
+  const tracked = [...reg.workflows.map((w) => w.id), ...reg.inboundWorkflows.map((w) => w.id)];
+  const rows = await q<{ id: string }>(`select id from n8n_workflows where active and not (id = any($1::text[]))`, [tracked]);
+  let seen = 0;
+  let written = 0;
+  const failures: string[] = [];
+  for (const wf of rows) {
+    try {
+      const r = await syncWorkflowExecutions(wf.id, async () => 0);
+      seen += r.seen;
+      written += r.written;
+      await resolveIntegrationErrors(`n8n:wf:${wf.id}:fetch`);
+    } catch (err) {
+      failures.push(wf.id);
+      await recordIntegrationError(`n8n:wf:${wf.id}:fetch`, `Fetching execution history for workflow ${wf.id} failed: ${(err as Error).message}`, {}, 'warning');
+    }
+  }
+  const status = failures.length === 0 ? 'success' : failures.length < rows.length ? 'partial' : rows.length ? 'error' : 'success';
+  await finishRun(runId, status, { seen, written }, failures.length ? `${failures.length} of ${rows.length} untracked workflow(s) failed to fetch` : null);
+}
+
 /** Refresh workflow active flags, detect sender workflows that the registry does not track. */
 export async function scanN8nWorkflows(): Promise<void> {
   const runId = await startRun('n8n_workflows', 'n8n:workflows');

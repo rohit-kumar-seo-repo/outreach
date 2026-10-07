@@ -8,7 +8,7 @@ import { syncRegistry } from '../lib/registry/sync';
 import { evaluateAlerts } from '../lib/alerts';
 import { deriveLeads } from '../lib/sync/derive';
 import { syncMailboxes } from '../lib/sync/mail-sync';
-import { scanN8nWorkflows, syncN8nExecutions } from '../lib/sync/n8n-sync';
+import { scanN8nWorkflows, syncN8nExecutions, syncUntrackedWorkflowExecutions } from '../lib/sync/n8n-sync';
 import { syncSheets } from '../lib/sync/sheets-sync';
 import { syncWaha } from '../lib/sync/waha';
 
@@ -46,6 +46,7 @@ async function main(): Promise<void> {
     { name: 'n8n-workflows', everySec: i.workflows, run: scanN8nWorkflows },
     { name: 'sheets', everySec: i.sheets, run: syncSheets },
     { name: 'n8n-executions', everySec: i.n8n, run: syncN8nExecutions },
+    { name: 'n8n-workflow-health', everySec: i.workflowHealth, run: syncUntrackedWorkflowExecutions },
     { name: 'mailboxes', everySec: i.mail, run: syncMailboxes },
     { name: 'waha', everySec: i.waha, run: syncWaha },
     { name: 'derive', everySec: i.derive, run: deriveLeads },

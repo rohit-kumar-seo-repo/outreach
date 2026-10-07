@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleSlash } from 'lucide-react';
+import Link from 'next/link';
 import { requestSync, resolveError } from '@/app/actions/data';
 import { Card, EmptyState, Notice, PageHeader, Pill, SyncState } from '@/components/ui';
 import { configChecklist, openErrors, recentRuns, workflowCoverage } from '@/lib/metrics/integrations';
@@ -19,6 +20,7 @@ export default async function IntegrationsPage() {
   const [statuses, errors, runs, workflows] = await Promise.all([integrationStatuses(), openErrors(), recentRuns(), workflowCoverage()]);
   const checklist = configChecklist();
   const untracked = workflows.filter((w) => !w.tracked && w.looksLikeSender);
+  const failingUntracked = workflows.filter((w) => !w.tracked && (w.lastRunStatus === 'error' || w.lastRunStatus === 'crashed'));
   const sources = statuses.filter((s) => s.kind !== 'mailbox');
   const mailboxes = statuses.filter((s) => s.kind === 'mailbox');
   return (
@@ -37,6 +39,18 @@ export default async function IntegrationsPage() {
           </div>
         }
       />
+      {failingUntracked.length > 0 && (
+        <div className="mb-4">
+          <Notice tone="critical" title={`${failingUntracked.length} n8n workflow(s) outside the dashboard's registry are failing`}>
+            {failingUntracked.map((w) => w.name).join(', ')}. Every active n8n workflow's execution history is now pulled for health, even when it is not one of
+            this dashboard's tracked campaigns — see the open error below and the{' '}
+            <Link href="/alerts" className="link">
+              Alerts
+            </Link>{' '}
+            page for the exact n8n error message on each run.
+          </Notice>
+        </div>
+      )}
       {untracked.length > 0 && (
         <div className="mb-4">
           <Notice tone="warn" title={`${untracked.length} n8n workflow(s) send messages but are not mapped to a campaign`}>
@@ -116,7 +130,11 @@ export default async function IntegrationsPage() {
             </tbody>
           </table>
         </Card>
-        <Card title="n8n workflow coverage" subtitle="Tracked send workflows and any sender workflow that is not mapped" pad={false}>
+        <Card
+          title="n8n workflow coverage"
+          subtitle="Tracked send workflows, any sender workflow that is not mapped, and any other active workflow currently failing"
+          pad={false}
+        >
           {workflows.length === 0 ? (
             <EmptyState title="n8n not scanned yet">Set N8N_BASE_URL and N8N_API_KEY; the workflow scan runs hourly.</EmptyState>
           ) : (
@@ -126,6 +144,7 @@ export default async function IntegrationsPage() {
                   <th>Workflow</th>
                   <th>n8n state</th>
                   <th>Tracking</th>
+                  <th>Last run</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,6 +156,18 @@ export default async function IntegrationsPage() {
                     </td>
                     <td>{w.active ? <Pill tone="good">Active</Pill> : <Pill>Inactive</Pill>}</td>
                     <td>{w.tracked ? <Pill tone="brand">Tracked</Pill> : <Pill tone="warn">Not mapped</Pill>}</td>
+                    <td className="whitespace-nowrap text-[12px]">
+                      {w.lastRunStatus ? (
+                        <>
+                          <Pill tone={w.lastRunStatus === 'success' ? 'good' : w.lastRunStatus === 'error' || w.lastRunStatus === 'crashed' ? 'critical' : 'default'}>
+                            {w.lastRunStatus}
+                          </Pill>
+                          {w.lastRunAt && <span className="ml-1.5 text-ink-3" title={formatDateTime(w.lastRunAt)}>{relativeTime(w.lastRunAt)}</span>}
+                        </>
+                      ) : (
+                        <span className="text-ink-3">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

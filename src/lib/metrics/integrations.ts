@@ -16,9 +16,27 @@ export async function recentRuns() {
 }
 
 export async function workflowCoverage() {
-  return q<{ id: string; name: string; active: boolean | null; tracked: boolean; looksLikeSender: boolean; senderNodes: string[]; lastCheckedAt: Date | null }>(
-    `select id, name, active, tracked, looks_like_sender as "looksLikeSender", sender_nodes as "senderNodes", last_checked_at as "lastCheckedAt"
-       from n8n_workflows where tracked or looks_like_sender order by tracked, active desc nulls last, name`,
+  return q<{
+    id: string;
+    name: string;
+    active: boolean | null;
+    tracked: boolean;
+    looksLikeSender: boolean;
+    senderNodes: string[];
+    lastCheckedAt: Date | null;
+    lastRunStatus: string | null;
+    lastRunAt: Date | null;
+  }>(
+    `select w.id, w.name, w.active, w.tracked, w.looks_like_sender as "looksLikeSender", w.sender_nodes as "senderNodes",
+            w.last_checked_at as "lastCheckedAt", le.status as "lastRunStatus", le.started_at as "lastRunAt"
+       from n8n_workflows w
+       left join lateral (
+         select status, started_at from n8n_executions e where e.workflow_id = w.id order by e.started_at desc limit 1
+       ) le on true
+      -- Tracked and sender-like workflows always show; any other workflow only shows up here once it is
+      -- actually failing (its full history lives on the Alerts page once that happens).
+      where w.tracked or w.looks_like_sender or le.status in ('error', 'crashed')
+      order by (le.status in ('error', 'crashed')) desc, w.tracked desc, w.active desc nulls last, w.name`,
   );
 }
 
