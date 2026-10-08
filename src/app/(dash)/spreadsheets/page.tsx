@@ -1,3 +1,4 @@
+import { AnimatedNumber, Stagger } from '@/components/motion';
 import { Card, EmptyState, fmt, Notice, PageHeader, Pill, Tip } from '@/components/ui';
 import { capacity } from '@/lib/metrics/capacity';
 import { registry } from '@/lib/registry';
@@ -45,7 +46,7 @@ export default async function SpreadsheetsPage() {
                 actions={r.lastError ? <Pill tone="critical">Sync error</Pill> : r.lastSuccessAt ? <Pill tone="good">Synced</Pill> : <Pill>Not synced</Pill>}
               >
                 {r.lastError && <p className="mb-3 text-[12.5px] text-critical">{r.lastError}</p>}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+                <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
                   {[
                     ['Total rows', r.totalRows, 'Rows currently present in the sheet.'],
                     ['Remaining', r.remaining, 'Uncontacted and usable (see the definition above).'],
@@ -60,10 +61,12 @@ export default async function SpreadsheetsPage() {
                       <div className="flex items-center gap-1 text-[11.5px] text-ink-2">
                         {label} <Tip text={String(tip)} />
                       </div>
-                      <div className="text-lg font-semibold tabular">{fmt(Number(v))}</div>
+                      <div className="text-lg font-semibold tabular">
+                        <AnimatedNumber value={Number(v)} />
+                      </div>
                     </div>
                   ))}
-                </div>
+                </Stagger>
                 <div className="mt-3 grid grid-cols-1 gap-4 text-[12.5px] lg:grid-cols-3">
                   <div>
                     <div className="mb-1 font-medium text-ink">Remaining breakdown</div>

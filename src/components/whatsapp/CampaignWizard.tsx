@@ -1,8 +1,10 @@
 'use client';
 
+import { AnimatePresence, motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { saveCampaignDraft } from '@/app/actions/whatsapp';
+import { Reveal, Stagger } from '@/components/motion';
 import type { WaTemplate } from '@/lib/whatsapp/templates';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -46,7 +48,7 @@ export function CampaignWizard({ templates, sessions }: { templates: WaTemplate[
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-4">
+      <Stagger className="space-y-4">
         <div className="card space-y-2 p-4">
           <h2 className="text-[13px] font-semibold text-ink">1. Name</h2>
           <input className="field w-full" placeholder="e.g. Mumbai Dental Follow-up" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
@@ -128,10 +130,10 @@ export function CampaignWizard({ templates, sessions }: { templates: WaTemplate[
           <h2 className="text-[13px] font-semibold text-ink">6. Notes for whoever builds this</h2>
           <textarea className="field w-full resize-y" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Eligible leads, exclusions, anything the sending workflow needs to know…" />
         </div>
-      </div>
+      </Stagger>
 
       <div className="lg:sticky lg:top-6 lg:self-start">
-        <div className="card space-y-3 p-4">
+        <Reveal delay={0.2} className="card space-y-3 p-4">
           <h2 className="text-[13px] font-semibold text-ink">7. Review</h2>
           <dl className="space-y-1.5 text-[12.5px]">
             <Row label="Name" value={name || '—'} />
@@ -149,7 +151,7 @@ export function CampaignWizard({ templates, sessions }: { templates: WaTemplate[
           <button type="button" className="btn btn-primary w-full" disabled={pending || !name} onClick={save}>
             {pending ? 'Saving…' : 'Save draft'}
           </button>
-        </div>
+        </Reveal>
       </div>
     </div>
   );
@@ -159,7 +161,19 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-2">
       <dt className="shrink-0 text-ink-3">{label}</dt>
-      <dd className="text-right text-ink">{value}</dd>
+      <dd className="overflow-hidden text-right text-ink">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={value}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            className="inline-block"
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </dd>
     </div>
   );
 }

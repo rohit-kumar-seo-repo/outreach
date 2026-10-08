@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'motion/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -14,11 +15,12 @@ export function TabNav({ tabs }: { tabs: { href: string; label: string }[] }) {
             key={t.href}
             href={t.href}
             aria-current={active ? 'page' : undefined}
-            className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-              active ? 'border-brand text-brand' : 'border-transparent text-ink-2 hover:border-line-strong hover:text-ink'
-            }`}
+            className={`relative whitespace-nowrap px-3 py-2.5 text-[13.5px] font-medium transition-colors ${active ? 'text-brand' : 'text-ink-2 hover:text-ink'}`}
           >
             {t.label}
+            <span className="absolute inset-x-3 bottom-0 h-0.5">
+              {active && <motion.span layoutId="wa-tab-active" className="block h-full rounded-full bg-brand" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
+            </span>
           </Link>
         );
       })}

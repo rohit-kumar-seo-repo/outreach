@@ -22,9 +22,22 @@ export function PageTransition({ children }: { children: ReactNode }) {
 }
 
 /** Fades a section in once, slightly delayed — use for cards that should settle in after the page shell. */
-export function Reveal({ children, delay = 0, className, role }: { children: ReactNode; delay?: number; className?: string; role?: string }) {
+export function Reveal({
+  children,
+  delay = 0,
+  className,
+  role,
+  as = 'div',
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  role?: string;
+  as?: 'div' | 'section';
+}) {
+  const MotionTag = as === 'section' ? motion.section : motion.div;
   return (
-    <motion.div
+    <MotionTag
       className={className}
       role={role}
       initial={{ opacity: 0, y: 10 }}
@@ -32,7 +45,7 @@ export function Reveal({ children, delay = 0, className, role }: { children: Rea
       transition={{ duration: 0.35, delay, ease: EASE }}
     >
       {children}
-    </motion.div>
+    </MotionTag>
   );
 }
 

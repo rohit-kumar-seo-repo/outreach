@@ -1,4 +1,4 @@
-import { AnimatedSegments } from '@/components/motion';
+import { AnimatedNumber, AnimatedSegments, Stagger } from '@/components/motion';
 import { Card, EmptyState, fmt, Notice, PageHeader } from '@/components/ui';
 import { campaignOptions } from '@/lib/metrics/campaigns';
 import { waReport, waSessions } from '@/lib/metrics/whatsapp';
@@ -72,24 +72,32 @@ export default async function WaReportsPage({ searchParams }: { searchParams: Pr
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <Stagger className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="card p-3">
           <div className="text-xs text-ink-2">Accepted</div>
-          <div className="mt-1 text-xl font-semibold tabular">{fmt(report.totals.accepted)}</div>
+          <div className="mt-1 text-xl font-semibold tabular">
+            <AnimatedNumber value={report.totals.accepted} />
+          </div>
         </div>
         <div className="card p-3">
           <div className="text-xs text-ink-2">Failed</div>
-          <div className="mt-1 text-xl font-semibold tabular">{fmt(report.totals.failed)}</div>
+          <div className="mt-1 text-xl font-semibold tabular">
+            <AnimatedNumber value={report.totals.failed} />
+          </div>
         </div>
         <div className="card p-3">
           <div className="text-xs text-ink-2">Human replies</div>
-          <div className="mt-1 text-xl font-semibold tabular">{fmt(report.totals.replies)}</div>
+          <div className="mt-1 text-xl font-semibold tabular">
+            <AnimatedNumber value={report.totals.replies} />
+          </div>
         </div>
         <div className="card p-3">
           <div className="text-xs text-ink-2">Opted out</div>
-          <div className="mt-1 text-xl font-semibold tabular">{fmt(report.totals.optedOut)}</div>
+          <div className="mt-1 text-xl font-semibold tabular">
+            <AnimatedNumber value={report.totals.optedOut} />
+          </div>
         </div>
-      </div>
+      </Stagger>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Daily volume" subtitle="Accepted, failed and human replies per day." pad={false}>
@@ -166,7 +174,7 @@ export default async function WaReportsPage({ searchParams }: { searchParams: Pr
           ) : (
             <div className="text-[13px]">
               <div className="text-2xl font-semibold tabular">
-                {report.responseTimeHours.median !== null ? `${report.responseTimeHours.median.toFixed(1)}h` : '—'}
+                {report.responseTimeHours.median !== null ? <AnimatedNumber value={report.responseTimeHours.median} format={(n) => `${n.toFixed(1)}h`} /> : '—'}
               </div>
               <div className="text-ink-2">Median, from {fmt(report.responseTimeHours.sampleSize)} replied lead(s).</div>
             </div>

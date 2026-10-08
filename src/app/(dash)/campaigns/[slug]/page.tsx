@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ActivityCharts } from '@/components/ActivityCharts';
 import { CampaignStatus, LEAD_STATUS, LeadStatus, ResultPill, SOURCE_LABEL, StepLabel, TIME_QUALITY_LABEL } from '@/components/status';
+import { AnimatedNumber, Lift, Stagger } from '@/components/motion';
 import { Card, EmptyState, fmt, Notice, PageHeader, RateCell, Tip } from '@/components/ui';
 import { q } from '@/lib/db';
 import { campaignBySlug, contactHistory, statusCounts } from '@/lib/metrics/campaigns';
@@ -54,7 +55,7 @@ export default async function CampaignPage({ params, searchParams }: { params: P
       />
       {c.description && <p className="-mt-2 mb-4 max-w-4xl text-sm text-ink-2">{c.description}</p>}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
+      <Stagger className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
         {[
           ['Leads loaded', c.leadsLoaded, 'Rows currently in the source sheet(s) for this campaign.'],
           ['Eligible', c.eligible, 'Loaded minus invalid, duplicate, excluded and unsubscribed.'],
@@ -63,14 +64,18 @@ export default async function CampaignPage({ params, searchParams }: { params: P
           ['Remaining', c.remaining, 'Usable leads not contacted yet (ready, queued, awaiting approval, needs draft, failed).'],
           ['Duplicates prevented', c.duplicatesPrevented, 'Duplicate rows (same address earlier in this campaign) that were never sent to.'],
         ].map(([label, v, tip]) => (
-          <div key={String(label)} className="card p-3">
-            <div className="flex items-center gap-1 text-xs text-ink-2">
-              {label} <Tip text={String(tip)} />
+          <Lift key={String(label)}>
+            <div className="card h-full p-3">
+              <div className="flex items-center gap-1 text-xs text-ink-2">
+                {label} <Tip text={String(tip)} />
+              </div>
+              <div className="mt-1 text-xl font-semibold tabular">
+                <AnimatedNumber value={Number(v)} />
+              </div>
             </div>
-            <div className="mt-1 text-xl font-semibold tabular">{fmt(Number(v))}</div>
-          </div>
+          </Lift>
         ))}
-      </div>
+      </Stagger>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Sends" subtitle="Unique (lead, step) accepted by the server">

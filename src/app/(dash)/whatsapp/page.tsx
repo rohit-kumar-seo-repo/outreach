@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AlertTriangle, MessageSquareWarning, PauseCircle, Users, WifiOff } from 'lucide-react';
+import { AnimatedNumber, Stagger } from '@/components/motion';
 import { Card, EmptyState, fmt, KpiCard, Notice, PageHeader, Pill } from '@/components/ui';
 import { env } from '@/lib/env';
 import { one } from '@/lib/db';
@@ -58,26 +59,31 @@ export default async function WhatsAppOverviewPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard
-          label="Messages accepted today"
-          value={fmt(deltas?.acceptedToday ?? 0)}
-          sub={acceptedDelta !== null ? `${acceptedDelta >= 0 ? '+' : ''}${acceptedDelta}% vs yesterday (${fmt(deltas?.acceptedYesterday ?? 0)})` : `Yesterday: ${fmt(deltas?.acceptedYesterday ?? 0)}`}
-        />
-        <KpiCard
-          label="Human replies today"
-          value={fmt(deltas?.repliesToday ?? 0)}
-          sub={repliesDelta !== null ? `${repliesDelta >= 0 ? '+' : ''}${repliesDelta}% vs yesterday (${fmt(deltas?.repliesYesterday ?? 0)})` : `Yesterday: ${fmt(deltas?.repliesYesterday ?? 0)}`}
-          tone="good"
-        />
-        <KpiCard
-          label="Needs your attention"
-          value={fmt(attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length)}
-          sub={`${attention.needsReply} repl${attention.needsReply === 1 ? 'y' : 'ies'} · ${attention.campaigns.length} campaign issue(s) · ${attention.disconnectedSessions.length} account issue(s)`}
-          tone={attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length > 0 ? 'warn' : 'good'}
-          href="/whatsapp/inbox"
-        />
-      </div>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          <KpiCard
+            key="accepted"
+            label="Messages accepted today"
+            value={<AnimatedNumber value={deltas?.acceptedToday ?? 0} />}
+            sub={acceptedDelta !== null ? `${acceptedDelta >= 0 ? '+' : ''}${acceptedDelta}% vs yesterday (${fmt(deltas?.acceptedYesterday ?? 0)})` : `Yesterday: ${fmt(deltas?.acceptedYesterday ?? 0)}`}
+          />,
+          <KpiCard
+            key="replies"
+            label="Human replies today"
+            value={<AnimatedNumber value={deltas?.repliesToday ?? 0} />}
+            sub={repliesDelta !== null ? `${repliesDelta >= 0 ? '+' : ''}${repliesDelta}% vs yesterday (${fmt(deltas?.repliesYesterday ?? 0)})` : `Yesterday: ${fmt(deltas?.repliesYesterday ?? 0)}`}
+            tone="good"
+          />,
+          <KpiCard
+            key="attention"
+            label="Needs your attention"
+            value={<AnimatedNumber value={attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length} />}
+            sub={`${attention.needsReply} repl${attention.needsReply === 1 ? 'y' : 'ies'} · ${attention.campaigns.length} campaign issue(s) · ${attention.disconnectedSessions.length} account issue(s)`}
+            tone={attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length > 0 ? 'warn' : 'good'}
+            href="/whatsapp/inbox"
+          />,
+        ]}
+      </Stagger>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Needs your attention" pad={false}>

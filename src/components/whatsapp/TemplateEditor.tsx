@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { previewTemplateAction, saveTemplate, uploadWaMedia } from '@/app/actions/whatsapp';
@@ -117,15 +118,16 @@ export function TemplateEditor({
           {placeholders.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {placeholders.map((p) => (
-                <button
+                <motion.button
                   key={p}
                   type="button"
+                  whileTap={{ scale: 0.92 }}
                   className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-ink-2 hover:bg-slate-200"
                   onClick={() => setBodyText((t) => `${t}{{${p}}}`)}
                   title={`Insert {{${p}}}`}
                 >
                   {`{{${p}}}`}
-                </button>
+                </motion.button>
               ))}
             </div>
           )}
@@ -196,7 +198,17 @@ export function TemplateEditor({
         )}
         <div className="rounded-lg bg-slate-100 p-3">
           {hasAttachment && <div className="mb-2 rounded-md bg-slate-200 px-2 py-6 text-center text-[11px] text-ink-3">{mediaLabel || mediaUrl} ({mediaKind})</div>}
-          <p className="whitespace-pre-wrap text-[13px]">{preview?.text || <span className="text-ink-3">Nothing to preview yet</span>}</p>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={preview?.text || 'empty'}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18 }}
+              className="whitespace-pre-wrap text-[13px]"
+            >
+              {preview?.text || <span className="text-ink-3">Nothing to preview yet</span>}
+            </motion.p>
+          </AnimatePresence>
         </div>
         {!!preview?.missing.length && (
           <p className="mt-2 text-[12px] text-warn">

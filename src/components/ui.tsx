@@ -17,7 +17,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Card({ title, subtitle, actions, children, className = '', pad = true }: { title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; pad?: boolean }) {
   return (
-    <section className={`card ${className}`}>
+    <Reveal as="section" delay={0.04} className={`card ${className}`}>
       {title ? (
         <header className="flex flex-wrap items-start justify-between gap-2 border-b border-line px-4 py-3">
           <div>
@@ -28,7 +28,7 @@ export function Card({ title, subtitle, actions, children, className = '', pad =
         </header>
       ) : null}
       <div className={pad ? 'p-4' : ''}>{children}</div>
-    </section>
+    </Reveal>
   );
 }
 

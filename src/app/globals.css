@@ -45,6 +45,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Every link, button and clickable row gets a smooth hover/active transition by default, so a
+   stray `hover:bg-…` utility anywhere in the app never pops instead of fading. */
+a,
+button,
+tr {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
 /* Component classes live in a layer so Tailwind utilities (lg:hidden, py-1, pl-8…) can override them. */
 @layer components {
   .tabular {
@@ -55,6 +63,7 @@ body {
     background: var(--color-card);
     border: 1px solid var(--color-line);
     border-radius: 12px;
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
   }
 
   .table-compact th {
@@ -90,6 +99,7 @@ body {
     font-size: 13px;
     color: var(--color-ink);
     min-height: 34px;
+    transition: outline-color 0.15s ease, border-color 0.15s ease;
   }
   .field:focus {
     outline: 2px solid var(--color-brand);
@@ -109,9 +119,13 @@ body {
     background: #fff;
     color: var(--color-ink);
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   }
   .btn:hover {
     background: #f5f7fb;
+  }
+  .btn:active:not(:disabled):not([aria-disabled='true']) {
+    transform: scale(0.97);
   }
   .btn:disabled,
   .btn[aria-disabled='true'] {
@@ -135,6 +149,7 @@ body {
   a.link,
   button.link {
     color: var(--color-brand);
+    transition: color 0.15s ease;
   }
   a.link:hover,
   button.link:hover {
@@ -145,6 +160,17 @@ body {
 @media (forced-colors: active) {
   .card {
     border: 1px solid CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

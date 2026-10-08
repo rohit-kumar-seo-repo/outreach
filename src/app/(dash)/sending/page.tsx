@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, XCircle } from 'lucide-react';
 import { saveSendLimit } from '@/app/actions/data';
-import { AnimatedBar } from '@/components/motion';
+import { AnimatedBar, AnimatedNumber, Stagger } from '@/components/motion';
 import { Card, EmptyState, fmt, KpiCard, Notice, PageHeader, Pill, Tip } from '@/components/ui';
 import { dailyVolumes, UNKNOWN_SENDER, type VolumeRow } from '@/lib/metrics/sending';
 import { formatDate } from '@/lib/time';
@@ -163,18 +163,26 @@ export default async function SendingPage() {
         title="Sending volume"
         subtitle="Email sent per domain and per mailbox each day (local time), with the daily limits you set. The dashboard only watches volume; it never pauses sending."
       />
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Sent today" value={fmt(todayTotal)} sub={`${fmt(todayOutreach)} outreach + ${fmt(todayTotal - todayOutreach)} other sent mail`} />
-        <KpiCard label="Busiest mailbox today" value={busiest && busiest.today.total > 0 ? fmt(busiest.today.total) : '—'} sub={busiest && busiest.today.total > 0 ? busiest.key : 'Nothing sent yet today'} />
-        <KpiCard label="Over limit" value={fmt(over)} tone={over ? 'critical' : 'default'} icon={<XCircle size={15} aria-hidden />} sub="Domains + mailboxes today" />
-        <KpiCard
-          label="Near limit"
-          value={fmt(near)}
-          tone={near ? 'warn' : 'default'}
-          icon={<AlertTriangle size={15} aria-hidden />}
-          sub={noLimit ? `${noLimit} active mailbox(es) have no limit` : 'Domains + mailboxes today'}
-        />
-      </div>
+      <Stagger className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          <KpiCard key="sent" label="Sent today" value={<AnimatedNumber value={todayTotal} />} sub={`${fmt(todayOutreach)} outreach + ${fmt(todayTotal - todayOutreach)} other sent mail`} />,
+          <KpiCard
+            key="busiest"
+            label="Busiest mailbox today"
+            value={busiest && busiest.today.total > 0 ? <AnimatedNumber value={busiest.today.total} /> : '—'}
+            sub={busiest && busiest.today.total > 0 ? busiest.key : 'Nothing sent yet today'}
+          />,
+          <KpiCard key="over" label="Over limit" value={<AnimatedNumber value={over} />} tone={over ? 'critical' : 'default'} icon={<XCircle size={15} aria-hidden />} sub="Domains + mailboxes today" />,
+          <KpiCard
+            key="near"
+            label="Near limit"
+            value={<AnimatedNumber value={near} />}
+            tone={near ? 'warn' : 'default'}
+            icon={<AlertTriangle size={15} aria-hidden />}
+            sub={noLimit ? `${noLimit} active mailbox(es) have no limit` : 'Domains + mailboxes today'}
+          />,
+        ]}
+      </Stagger>
       <div className="mb-4">
         <Notice title="How the totals are counted">
           Daily total = outreach sends (deduplicated, from n8n runs, sheets and Sent folders) + other mail in the mailbox&rsquo;s Sent folders that is not an outreach send (manual
