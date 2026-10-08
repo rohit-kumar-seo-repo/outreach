@@ -137,8 +137,8 @@ export function ActivityCharts({ points, unknownDated }: { points: Point[]; unkn
                   <XAxis dataKey="day" tickFormatter={shortDay} tick={{ fontSize: 11, fill: AXIS }} tickLine={false} axisLine={{ stroke: '#cfd6e3' }} interval={tickInterval(points.length)} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: AXIS }} tickLine={false} axisLine={false} width={40} />
                   <Tooltip content={<SendTooltip />} cursor={{ fill: 'rgba(37,99,235,0.06)' }} />
-                  <Bar dataKey="sent" name="Original emails" stackId="s" fill={ORIGINAL} stroke="#fff" strokeWidth={2} isAnimationActive={false} />
-                  <Bar dataKey="followups" name="Follow-ups" stackId="s" fill={FOLLOWUP} stroke="#fff" strokeWidth={2} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="sent" name="Original emails" stackId="s" fill={ORIGINAL} stroke="#fff" strokeWidth={2} animationDuration={500} animationEasing="ease-out" />
+                  <Bar dataKey="followups" name="Follow-ups" stackId="s" fill={FOLLOWUP} stroke="#fff" strokeWidth={2} radius={[4, 4, 0, 0]} animationDuration={500} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -166,7 +166,7 @@ export function ActivityCharts({ points, unknownDated }: { points: Point[]; unkn
                       <XAxis dataKey="day" hide />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: AXIS }} tickLine={false} axisLine={false} width={36} domain={[0, (max: number) => Math.max(1, max)]} />
                       <Tooltip content={<MiniTooltip name={unit} />} cursor={{ fill: 'rgba(15,23,42,0.05)' }} />
-                      <Bar dataKey={key} fill={color} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey={key} fill={color} radius={[3, 3, 0, 0]} animationDuration={500} animationEasing="ease-out" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

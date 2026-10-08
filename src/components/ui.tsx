@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, CircleDashed, CircleSlash, HelpCircle, Info, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Lift, Reveal } from './motion';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
@@ -84,26 +85,28 @@ export function KpiCard({
   unavailable?: string | null;
 }) {
   const body = (
-    <div className="card h-full p-4 transition-shadow hover:shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2">
-          {label}
-          {tip ? <Tip text={tip} /> : null}
+    <Lift className="h-full">
+      <div className={`card h-full p-4 ${href ? 'transition-shadow hover:shadow-sm' : ''}`}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2">
+            {label}
+            {tip ? <Tip text={tip} /> : null}
+          </div>
+          {icon ? <div className={`flex h-7 w-7 items-center justify-center rounded-md ${toneClass[tone]}`}>{icon}</div> : null}
         </div>
-        {icon ? <div className={`flex h-7 w-7 items-center justify-center rounded-md ${toneClass[tone]}`}>{icon}</div> : null}
+        {unavailable ? (
+          <>
+            <div className="mt-2 text-[22px] font-semibold text-ink-3">—</div>
+            <div className="mt-1 text-xs text-ink-3">{unavailable}</div>
+          </>
+        ) : (
+          <>
+            <div className="mt-2 text-[26px] font-semibold leading-none text-ink">{value}</div>
+            {sub ? <div className="mt-2 text-xs text-ink-3 [overflow-wrap:anywhere]">{sub}</div> : null}
+          </>
+        )}
       </div>
-      {unavailable ? (
-        <>
-          <div className="mt-2 text-[22px] font-semibold text-ink-3">—</div>
-          <div className="mt-1 text-xs text-ink-3">{unavailable}</div>
-        </>
-      ) : (
-        <>
-          <div className="mt-2 text-[26px] font-semibold leading-none text-ink">{value}</div>
-          {sub ? <div className="mt-2 text-xs text-ink-3 [overflow-wrap:anywhere]">{sub}</div> : null}
-        </>
-      )}
-    </div>
+    </Lift>
   );
   return href ? (
     <Link href={href} className="block h-full">
@@ -134,13 +137,13 @@ export function Notice({ tone = 'info', title, children }: { tone?: 'info' | 'wa
   const Icon = { info: Info, warn: AlertTriangle, critical: XCircle, good: CheckCircle2 }[tone];
   const iconCls = { info: 'text-brand', warn: 'text-warn', critical: 'text-critical', good: 'text-good-text' }[tone];
   return (
-    <div className={`flex gap-3 rounded-lg border px-4 py-3 text-[13px] ${cls}`} role={tone === 'critical' ? 'alert' : 'status'}>
+    <Reveal role={tone === 'critical' ? 'alert' : 'status'} className={`flex gap-3 rounded-lg border px-4 py-3 text-[13px] ${cls}`}>
       <Icon size={17} className={`mt-0.5 shrink-0 ${iconCls}`} aria-hidden />
       <div>
         {title ? <div className="font-semibold">{title}</div> : null}
         <div className="text-ink-2">{children}</div>
       </div>
-    </div>
+    </Reveal>
   );
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -84,14 +85,25 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
                 key={href}
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${
-                  active ? 'bg-navy-700 font-medium text-white' : 'hover:bg-navy-800 hover:text-white'
+                className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13.5px] transition-colors ${
+                  active ? 'font-medium text-white' : 'text-navy-300 hover:bg-navy-800 hover:text-white'
                 }`}
               >
-                <Icon size={17} aria-hidden className={active ? 'text-white' : 'text-navy-300'} />
-                <span className="flex-1">{label}</span>
+                {active && (
+                  <motion.span
+                    layoutId="nav-active"
+                    className="absolute inset-0 rounded-lg bg-navy-700"
+                    style={{ zIndex: 0 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                  />
+                )}
+                <Icon size={17} aria-hidden className={`relative z-10 ${active ? 'text-white' : 'text-navy-300'}`} />
+                <span className="relative z-10 flex-1">{label}</span>
                 {badge ? (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white tabular ${href === '/alerts' ? 'bg-critical' : 'bg-brand'}`} aria-label={`${badge} need attention`}>
+                  <span
+                    className={`relative z-10 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white tabular ${href === '/alerts' ? 'bg-critical' : 'bg-brand'}`}
+                    aria-label={`${badge} need attention`}
+                  >
                     {badge > 99 ? '99+' : badge}
                   </span>
                 ) : null}

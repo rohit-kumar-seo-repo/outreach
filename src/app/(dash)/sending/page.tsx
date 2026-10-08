@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, XCircle } from 'lucide-react';
 import { saveSendLimit } from '@/app/actions/data';
+import { AnimatedBar } from '@/components/motion';
 import { Card, EmptyState, fmt, KpiCard, Notice, PageHeader, Pill, Tip } from '@/components/ui';
 import { dailyVolumes, UNKNOWN_SENDER, type VolumeRow } from '@/lib/metrics/sending';
 import { formatDate } from '@/lib/time';
@@ -38,9 +39,7 @@ function Usage({ row }: { row: VolumeRow }) {
   const bar = row.state === 'over' ? 'bg-critical' : row.state === 'near' ? 'bg-warn' : 'bg-brand';
   return (
     <div className="min-w-28">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden>
-        <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.min(100, pctUsed)}%` }} />
-      </div>
+      <AnimatedBar pct={pctUsed} className={bar} />
       <div className="mt-1 text-[11.5px] tabular text-ink-2">
         {fmt(row.today.total)} / {fmt(row.limit.dailyLimit)} ({pctUsed}%)
       </div>

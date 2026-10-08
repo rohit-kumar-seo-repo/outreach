@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { pauseCampaign, resumeCampaign, saveCampaignSettings } from '@/app/actions/whatsapp';
+import { AnimatedBar } from '@/components/motion';
 import { Card, fmt, Notice, PageHeader, Pill, RateCell } from '@/components/ui';
 import { q } from '@/lib/db';
 import { campaignBySlug } from '@/lib/metrics/campaigns';
@@ -148,9 +149,7 @@ export default async function WaCampaignDetailPage({ params }: { params: Promise
                     </Link>
                   </td>
                   <td className="w-40">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-brand" style={{ width: funnel.loaded ? `${Math.max(2, (b.count / funnel.loaded) * 100)}%` : '0%' }} />
-                    </div>
+                    <AnimatedBar pct={funnel.loaded ? Math.max(2, (b.count / funnel.loaded) * 100) : 0} />
                   </td>
                   <td className="text-right tabular">{fmt(b.count)}</td>
                 </tr>

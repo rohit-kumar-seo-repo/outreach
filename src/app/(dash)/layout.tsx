@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/Sidebar';
+import { PageTransition } from '@/components/motion';
 import { requireSession } from '@/lib/auth/session';
 import { one } from '@/lib/db';
 import { env } from '@/lib/env';
@@ -32,7 +33,9 @@ export default async function DashLayout({ children }: { children: React.ReactNo
           </div>
         )}
         {/* Pages marked data-fullbleed (the inbox) use the whole width and height. */}
-        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 has-[[data-fullbleed]]:max-w-none has-[[data-fullbleed]]:p-0 lg:has-[[data-fullbleed]]:min-h-0 lg:has-[[data-fullbleed]]:flex-1">{children}</main>
+        <main className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 has-[[data-fullbleed]]:max-w-none has-[[data-fullbleed]]:p-0 lg:has-[[data-fullbleed]]:min-h-0 lg:has-[[data-fullbleed]]:flex-1">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   );

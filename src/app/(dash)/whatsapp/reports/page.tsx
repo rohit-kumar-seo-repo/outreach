@@ -1,3 +1,4 @@
+import { AnimatedSegments } from '@/components/motion';
 import { Card, EmptyState, fmt, Notice, PageHeader } from '@/components/ui';
 import { campaignOptions } from '@/lib/metrics/campaigns';
 import { waReport, waSessions } from '@/lib/metrics/whatsapp';
@@ -100,10 +101,15 @@ export default async function WaReportsPage({ searchParams }: { searchParams: Pr
                 {report.daily.map((d) => (
                   <li key={d.day} className="flex items-center gap-2 text-[11.5px]">
                     <span className="w-16 shrink-0 text-ink-3">{formatShortDay(d.day)}</span>
-                    <span className="flex h-4 flex-1 overflow-hidden rounded-sm bg-slate-100">
-                      <span className="h-full bg-brand" style={{ width: `${(d.accepted / maxDay) * 100}%` }} title={`${d.accepted} accepted`} />
-                      <span className="h-full bg-critical" style={{ width: `${(d.failed / maxDay) * 100}%` }} title={`${d.failed} failed`} />
-                      <span className="h-full bg-good" style={{ width: `${(d.replies / maxDay) * 100}%` }} title={`${d.replies} replies`} />
+                    <span className="h-4 flex-1">
+                      <AnimatedSegments
+                        className="h-full bg-slate-100"
+                        segments={[
+                          { pct: (d.accepted / maxDay) * 100, className: 'bg-brand', title: `${d.accepted} accepted` },
+                          { pct: (d.failed / maxDay) * 100, className: 'bg-critical', title: `${d.failed} failed` },
+                          { pct: (d.replies / maxDay) * 100, className: 'bg-good', title: `${d.replies} replies` },
+                        ]}
+                      />
                     </span>
                     <span className="w-24 shrink-0 tabular text-ink-2">
                       {d.accepted}/{d.failed}/{d.replies}

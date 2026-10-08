@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { AlarmClock, CalendarClock, CheckCheck, Inbox, Megaphone, MessageSquareReply, Send, ShieldAlert, Users, XCircle } from 'lucide-react';
 import { ActivityCharts } from '@/components/ActivityCharts';
 import { FilterBar } from '@/components/FilterBar';
+import { AnimatedBar, AnimatedNumber, Stagger } from '@/components/motion';
 import { Card, fmt, KpiCard, Notice, PageHeader, SyncState, Tip } from '@/components/ui';
 import { alertCounts } from '@/lib/alerts';
 import { campaignOptions, mailboxOptions } from '@/lib/metrics/campaigns';
@@ -78,109 +79,121 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
-        <KpiCard
-          label="Emails sent today"
-          value={fmt(kpis.sentToday)}
-          sub="Original emails accepted by the server"
-          tip="Unique original (step 0) emails the SMTP server or Hostinger API accepted today. Accepted ≠ delivered to the inbox."
-          icon={<Send size={15} aria-hidden />}
-          tone="brand"
-          unavailable={sendsNote}
-        />
-        <KpiCard
-          label="Scheduled for tomorrow"
-          value={fmt(kpis.scheduledTomorrow + kpis.scheduledTomorrowFollowups)}
-          sub={`${fmt(kpis.scheduledTomorrow)} original · ${fmt(kpis.scheduledTomorrowFollowups)} follow-up`}
-          tip="Rows approved in a sheet with a send date/time falling tomorrow. WhatsApp daily-limit picks are not schedules and are not counted."
-          icon={<CalendarClock size={15} aria-hidden />}
-          unavailable={sheetsNote}
-        />
-        <KpiCard
-          label="Replies today"
-          value={fmt(kpis.repliesToday)}
-          sub={`${fmt(kpis.repliesTodayWhatsapp)} WhatsApp replies today`}
-          tip="Inbound emails matched to a contacted lead (thread header or sender address). Auto-replies and bounces are excluded."
-          icon={<MessageSquareReply size={15} aria-hidden />}
-          tone="good"
-          href="/inbox?kind=replies"
-          unavailable={mailNote}
-        />
-        <KpiCard
-          label="Follow-ups sent today"
-          value={fmt(kpis.followupsToday)}
-          sub="Follow-up steps accepted by the server"
-          tip="Unique follow-up steps (step ≥ 1) accepted today."
-          icon={<CheckCheck size={15} aria-hidden />}
-          tone="teal"
-          unavailable={sendsNote}
-        />
-        <KpiCard
-          label="Follow-ups due / overdue"
-          value={
-            <>
-              {fmt(kpis.followupsDueToday)} <span className="text-base font-medium text-ink-3">/ {fmt(kpis.followupsOverdue)}</span>
-            </>
-          }
-          sub={`${fmt(kpis.flaggedThreadsDue)} inbox threads flagged for follow-up`}
-          tip="Leads whose next sequence step (or manual follow-up date) is due today / was due before today and who have not replied."
-          icon={<AlarmClock size={15} aria-hidden />}
-          tone="warn"
-          href="/leads?followup=due"
-        />
-        <KpiCard
-          label="Bounces / failed today"
-          value={
-            <>
-              {fmt(kpis.bouncesToday)} <span className="text-base font-medium text-ink-3">/ {fmt(kpis.failedToday)}</span>
-            </>
-          }
-          sub="Bounce reports · rejected send attempts"
-          tip="Bounces = non-delivery reports found in the mailboxes. Failed = attempts the server/API rejected (from n8n)."
-          icon={<XCircle size={15} aria-hidden />}
-          tone="critical"
-        />
-        <KpiCard
-          label="Active campaigns"
-          value={fmt(kpis.activeCampaigns)}
-          sub={
-            kpis.campaignStatusUnknown > 0
-              ? `${kpis.campaignStatusUnknown} with unknown status (n8n not connected)`
-              : `${fmt(kpis.campaignsWithSends7d)} sent in the last 7 days`
-          }
-          tip="Campaigns whose n8n send workflow is active."
-          icon={<Megaphone size={15} aria-hidden />}
-          href="/campaigns"
-        />
-        <KpiCard
-          label="Leads ready to contact"
-          value={fmt(kpis.readyLeads + kpis.queuedLeads)}
-          sub={`${fmt(kpis.queuedLeads)} queued · ${fmt(kpis.awaitingApproval)} awaiting approval`}
-          tip="Ready (valid, uncontacted, picked up automatically) + Queued (approved with a send date). Excludes duplicates, invalid and suppressed leads."
-          icon={<Users size={15} aria-hidden />}
-          tone="brand"
-          href="/leads?status=ready"
-          unavailable={sheetsNote}
-        />
-        <KpiCard
-          label="Spreadsheet leads remaining"
-          value={fmt(kpis.remainingLeads)}
-          sub={`${fmt(kpis.needsDraft)} still need a draft`}
-          tip="Rows still in the sheets that have never been contacted and are usable: ready + queued + awaiting approval + needs draft + failed-never-sent."
-          icon={<ShieldAlert size={15} aria-hidden />}
-          href="/spreadsheets"
-          unavailable={sheetsNote}
-        />
-        <KpiCard
-          label="Unmatched inbound (30 d)"
-          value={fmt(kpis.unmatchedInbound)}
-          sub="Emails not linked to a lead"
-          tip="Inbound messages (not spam/trash) the dashboard could not reliably match to a lead or campaign. Assign them in the inbox."
-          icon={<Inbox size={15} aria-hidden />}
-          href="/inbox?match=unmatched"
-          unavailable={mailNote}
-        />
-      </div>
+      <Stagger className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-5">
+        {[
+          <KpiCard
+            key="sent"
+            label="Emails sent today"
+            value={<AnimatedNumber value={kpis.sentToday} />}
+            sub="Original emails accepted by the server"
+            tip="Unique original (step 0) emails the SMTP server or Hostinger API accepted today. Accepted ≠ delivered to the inbox."
+            icon={<Send size={15} aria-hidden />}
+            tone="brand"
+            unavailable={sendsNote}
+          />,
+          <KpiCard
+            key="scheduled"
+            label="Scheduled for tomorrow"
+            value={<AnimatedNumber value={kpis.scheduledTomorrow + kpis.scheduledTomorrowFollowups} />}
+            sub={`${fmt(kpis.scheduledTomorrow)} original · ${fmt(kpis.scheduledTomorrowFollowups)} follow-up`}
+            tip="Rows approved in a sheet with a send date/time falling tomorrow. WhatsApp daily-limit picks are not schedules and are not counted."
+            icon={<CalendarClock size={15} aria-hidden />}
+            unavailable={sheetsNote}
+          />,
+          <KpiCard
+            key="replies"
+            label="Replies today"
+            value={<AnimatedNumber value={kpis.repliesToday} />}
+            sub={`${fmt(kpis.repliesTodayWhatsapp)} WhatsApp replies today`}
+            tip="Inbound emails matched to a contacted lead (thread header or sender address). Auto-replies and bounces are excluded."
+            icon={<MessageSquareReply size={15} aria-hidden />}
+            tone="good"
+            href="/inbox?kind=replies"
+            unavailable={mailNote}
+          />,
+          <KpiCard
+            key="followups"
+            label="Follow-ups sent today"
+            value={<AnimatedNumber value={kpis.followupsToday} />}
+            sub="Follow-up steps accepted by the server"
+            tip="Unique follow-up steps (step ≥ 1) accepted today."
+            icon={<CheckCheck size={15} aria-hidden />}
+            tone="teal"
+            unavailable={sendsNote}
+          />,
+          <KpiCard
+            key="due"
+            label="Follow-ups due / overdue"
+            value={
+              <>
+                <AnimatedNumber value={kpis.followupsDueToday} /> <span className="text-base font-medium text-ink-3">/ <AnimatedNumber value={kpis.followupsOverdue} /></span>
+              </>
+            }
+            sub={`${fmt(kpis.flaggedThreadsDue)} inbox threads flagged for follow-up`}
+            tip="Leads whose next sequence step (or manual follow-up date) is due today / was due before today and who have not replied."
+            icon={<AlarmClock size={15} aria-hidden />}
+            tone="warn"
+            href="/leads?followup=due"
+          />,
+          <KpiCard
+            key="bounces"
+            label="Bounces / failed today"
+            value={
+              <>
+                <AnimatedNumber value={kpis.bouncesToday} /> <span className="text-base font-medium text-ink-3">/ <AnimatedNumber value={kpis.failedToday} /></span>
+              </>
+            }
+            sub="Bounce reports · rejected send attempts"
+            tip="Bounces = non-delivery reports found in the mailboxes. Failed = attempts the server/API rejected (from n8n)."
+            icon={<XCircle size={15} aria-hidden />}
+            tone="critical"
+          />,
+          <KpiCard
+            key="campaigns"
+            label="Active campaigns"
+            value={<AnimatedNumber value={kpis.activeCampaigns} />}
+            sub={
+              kpis.campaignStatusUnknown > 0
+                ? `${kpis.campaignStatusUnknown} with unknown status (n8n not connected)`
+                : `${fmt(kpis.campaignsWithSends7d)} sent in the last 7 days`
+            }
+            tip="Campaigns whose n8n send workflow is active."
+            icon={<Megaphone size={15} aria-hidden />}
+            href="/campaigns"
+          />,
+          <KpiCard
+            key="ready"
+            label="Leads ready to contact"
+            value={<AnimatedNumber value={kpis.readyLeads + kpis.queuedLeads} />}
+            sub={`${fmt(kpis.queuedLeads)} queued · ${fmt(kpis.awaitingApproval)} awaiting approval`}
+            tip="Ready (valid, uncontacted, picked up automatically) + Queued (approved with a send date). Excludes duplicates, invalid and suppressed leads."
+            icon={<Users size={15} aria-hidden />}
+            tone="brand"
+            href="/leads?status=ready"
+            unavailable={sheetsNote}
+          />,
+          <KpiCard
+            key="remaining"
+            label="Spreadsheet leads remaining"
+            value={<AnimatedNumber value={kpis.remainingLeads} />}
+            sub={`${fmt(kpis.needsDraft)} still need a draft`}
+            tip="Rows still in the sheets that have never been contacted and are usable: ready + queued + awaiting approval + needs draft + failed-never-sent."
+            icon={<ShieldAlert size={15} aria-hidden />}
+            href="/spreadsheets"
+            unavailable={sheetsNote}
+          />,
+          <KpiCard
+            key="unmatched"
+            label="Unmatched inbound (30 d)"
+            value={<AnimatedNumber value={kpis.unmatchedInbound} />}
+            sub="Emails not linked to a lead"
+            tip="Inbound messages (not spam/trash) the dashboard could not reliably match to a lead or campaign. Assign them in the inbox."
+            icon={<Inbox size={15} aria-hidden />}
+            href="/inbox?match=unmatched"
+            unavailable={mailNote}
+          />,
+        ]}
+      </Stagger>
 
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card
@@ -200,24 +213,35 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             }
             subtitle="Scheduled → attempted → accepted → bounced / confirmed"
           >
-            <dl className="space-y-2 text-[13px]">
-              {[
-                ['Scheduled (upcoming)', funnel.scheduledUpcoming, 'Approved rows with a future send time'],
-                ['Attempted', funnel.attempted, 'A workflow tried to send'],
-                ['Accepted by server', funnel.accepted, 'SMTP 250 / API 2xx / WAHA message key'],
-                ['Failed (never accepted)', funnel.failed, 'Rejected on every attempt'],
-                ['Bounced after acceptance', funnel.bounced, 'Bounce report within 14 days'],
-                ['Delivery confirmed', funnel.confirmedByReply + funnel.confirmedWhatsappAck, 'Email: recipient replied · WhatsApp: delivered/read tick'],
-                ['Accepted, delivery unverified', funnel.unverified, 'No bounce, no confirmation — the normal state for email'],
-              ].map(([label, n, help]) => (
-                <div key={String(label)} className="flex items-baseline justify-between gap-3 border-b border-line pb-2 last:border-0 last:pb-0">
-                  <div>
-                    <dt className="font-medium text-ink">{label}</dt>
-                    <dd className="text-[11.5px] text-ink-3">{help}</dd>
+            <dl className="space-y-2.5 text-[13px]">
+              {(() => {
+                const rows: [string, number, string, string][] = [
+                  ['Scheduled (upcoming)', funnel.scheduledUpcoming, 'Approved rows with a future send time', 'bg-slate-400'],
+                  ['Attempted', funnel.attempted, 'A workflow tried to send', 'bg-ink-3'],
+                  ['Accepted by server', funnel.accepted, 'SMTP 250 / API 2xx / WAHA message key', 'bg-brand'],
+                  ['Failed (never accepted)', funnel.failed, 'Rejected on every attempt', 'bg-critical'],
+                  ['Bounced after acceptance', funnel.bounced, 'Bounce report within 14 days', 'bg-serious'],
+                  ['Delivery confirmed', funnel.confirmedByReply + funnel.confirmedWhatsappAck, 'Email: recipient replied · WhatsApp: delivered/read tick', 'bg-good'],
+                  ['Accepted, delivery unverified', funnel.unverified, 'No bounce, no confirmation — the normal state for email', 'bg-teal'],
+                ];
+                const max = Math.max(1, ...rows.map((r) => r[1]));
+                return rows.map(([label, n, help, color]) => (
+                  <div key={label} className="border-b border-line pb-2.5 last:border-0 last:pb-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div>
+                        <dt className="font-medium text-ink">{label}</dt>
+                        <dd className="text-[11.5px] text-ink-3">{help}</dd>
+                      </div>
+                      <dd className="text-base font-semibold text-ink tabular">
+                        <AnimatedNumber value={n} />
+                      </dd>
+                    </div>
+                    <div className="mt-1.5">
+                      <AnimatedBar pct={(n / max) * 100} className={color} />
+                    </div>
                   </div>
-                  <dd className="text-base font-semibold text-ink tabular">{fmt(Number(n))}</dd>
-                </div>
-              ))}
+                ));
+              })()}
             </dl>
           </Card>
 
