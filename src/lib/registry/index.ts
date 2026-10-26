@@ -149,10 +149,23 @@ export function registry(): Registry {
   return cached;
 }
 
+/**
+ * Looks up `column` on `row`, falling back to a case-insensitive key match. Needed because the
+ * same source config is matched against two different row shapes: the raw sheet row (its own
+ * header casing, e.g. "LeadID") when reading the sheet, and an n8n send node's reshaped input
+ * (often camelCase, e.g. "leadId") when routing a send attempt to a campaign.
+ */
+function valueForColumn(row: Record<string, unknown>, column: string): unknown {
+  if (column in row) return row[column];
+  const lower = column.toLowerCase();
+  for (const k of Object.keys(row)) if (k.toLowerCase() === lower) return row[k];
+  return undefined;
+}
+
 export function campaignForRow(src: SourceDef, row: Record<string, unknown>): string {
   if (typeof src.campaign === 'string') return src.campaign;
   for (const rule of src.campaign.rules) {
-    if (new RegExp(rule.regex, 'i').test(String(row[rule.column] ?? ''))) return rule.campaign;
+    if (new RegExp(rule.regex, 'i').test(String(valueForColumn(row, rule.column) ?? ''))) return rule.campaign;
   }
   return src.campaign.default;
 }

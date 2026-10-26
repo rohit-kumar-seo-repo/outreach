@@ -53,28 +53,28 @@ describe('n8n execution extraction', () => {
     expect(a.idempotencyKey).toBe('n8n:26000:Send from agency@:0:0:0');
   });
 
-  it('routes Hostinger dispatcher rows to campaigns by LeadID and records error-output failures', () => {
-    const loop = { previousNode: 'Loop Leads', previousNodeOutput: 1 };
+  it('routes Google Ads Outreach dispatcher rows to campaigns by LeadID and records never-error failures', () => {
+    const loop = { previousNode: 'Sendable Payloads', previousNodeOutput: 0 };
     const exec: N8nExecution = {
       id: '100',
-      workflowId: 'NJLi3kOJRaoB5Bu7',
+      workflowId: '8FmbNamNSgCMOWx9',
       status: 'success',
       data: {
         resultData: {
           runData: {
-            'Loop Leads': [
-              { data: { main: [[], [{ json: { LeadID: 'uk-gads-plumber-1', Email: 'a@plumber.example', 'Send-from mailbox': 'ads@rohitkumarseo.tech', Subject: 'S1' } }]] } },
-              { data: { main: [[], [{ json: { LeadID: 'seo-bakery', Email: 'b@bakery.example', 'Send-from mailbox': 'rohit@rohitkumarseo.tech', Subject: 'S2' } }]] } },
+            'Sendable Payloads': [
+              { data: { main: [[{ json: { leadId: 'uk-gads-plumber-1', email: 'a@plumber.example', mailbox: 'ads@rohitkumarseo.tech', subject: 'S1' } }]] } },
+              { data: { main: [[{ json: { leadId: 'seo-bakery', email: 'b@bakery.example', mailbox: 'rohit@rohitkumarseo.tech', subject: 'S2' } }]] } },
             ],
-            'Send via Hostinger': [
-              { startTime: 1000, source: [{ ...loop, previousNodeRun: 0 }], data: { main: [[{ json: {}, pairedItem: { item: 0 } }], []] } },
-              { startTime: 2000, source: [{ ...loop, previousNodeRun: 1 }], data: { main: [[], [{ json: { error: { message: 'Forbidden - perhaps check your credentials?' } }, pairedItem: { item: 0 } }]] } },
+            'Send Email': [
+              { startTime: 1000, source: [{ ...loop, previousNodeRun: 0 }], data: { main: [[{ json: { status: 'queued' }, pairedItem: { item: 0 } }]] } },
+              { startTime: 2000, source: [{ ...loop, previousNodeRun: 1 }], data: { main: [[{ json: { error: 'Forbidden - perhaps check your credentials?' }, pairedItem: { item: 0 } }]] } },
             ],
           },
         },
       },
     };
-    const { attempts } = extractFromExecution(exec, wf('NJLi3kOJRaoB5Bu7'));
+    const { attempts } = extractFromExecution(exec, wf('8FmbNamNSgCMOWx9'));
     expect(attempts.map((a) => [a.campaignSlug, a.result, a.sender, a.leadRowKey])).toEqual([
       ['google-ads-services-intl', 'accepted', 'ads@rohitkumarseo.tech', 'uk-gads-plumber-1'],
       ['seo-visibility-us', 'failed', 'rohit@rohitkumarseo.tech', 'seo-bakery'],

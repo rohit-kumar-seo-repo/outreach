@@ -33,40 +33,16 @@
       "via": "hostinger_api"
     },
     {
-      "address": "agency@adssuspensionrecovery.com",
-      "via": "smtp"
+      "address": "rohit@rkdigitalmedia.in",
+      "via": "hostinger_api"
     },
     {
-      "address": "agency2@adssuspensionrecovery.com",
-      "via": "smtp"
+      "address": "hello@rkdigitalmedia.in",
+      "via": "hostinger_api"
     },
     {
-      "address": "agency3@adssuspensionrecovery.com",
-      "via": "smtp"
-    },
-    {
-      "address": "info@adssuspensionrecovery.com",
-      "via": "smtp"
-    },
-    {
-      "address": "sales@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "sales2@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "sales3@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "info@rkdigitalmedia.in",
-      "via": "smtp"
-    },
-    {
-      "address": "support@rkdigitalmedia.in",
-      "via": "smtp"
+      "address": "growth@rkdigitalmedia.in",
+      "via": "hostinger_api"
     }
   ],
   "retiredMailboxes": [
@@ -74,7 +50,16 @@
     "jacob@rkdigitalmedia.in",
     "larry@rkdigitalmedia.in",
     "paul@rkdigitalmedia.in",
-    "peter@rkdigitalmedia.in"
+    "peter@rkdigitalmedia.in",
+    "sales@rkdigitalmedia.in",
+    "sales2@rkdigitalmedia.in",
+    "sales3@rkdigitalmedia.in",
+    "info@rkdigitalmedia.in",
+    "support@rkdigitalmedia.in",
+    "agency@adssuspensionrecovery.com",
+    "agency2@adssuspensionrecovery.com",
+    "agency3@adssuspensionrecovery.com",
+    "info@adssuspensionrecovery.com"
   ],
   "campaigns": [
     {
@@ -82,9 +67,10 @@
       "name": "Google Ads Services — UK/US/CA/UAE",
       "channel": "email",
       "brand": "rohitkumarseo.tech",
-      "description": "Local-business Google Ads outreach. Rows are drafted, approved in the sheet, then sent by the 15-minute Outreach Send Dispatcher via the Hostinger Email API.",
+      "description": "Local-business Google Ads outreach. Rows are drafted, approved in the sheet, then sent by the 15-minute Google Ads Outreach Send Dispatcher via the Hostinger Email API.",
       "workflowIds": [
-        "NJLi3kOJRaoB5Bu7"
+        "8FmbNamNSgCMOWx9",
+        "k3yupWbipA9Iy0oF"
       ],
       "followup": {
         "mode": "source_schedule",
@@ -97,9 +83,10 @@
       "name": "SEO Visibility — US local businesses",
       "channel": "email",
       "brand": "rohitkumarseo.tech",
-      "description": "Rows in the Google Ads outreach sheet whose LeadID starts with \"seo-\". Sent by the Outreach Send Dispatcher.",
+      "description": "Rows in the Google Ads outreach sheet whose LeadID starts with \"seo-\". Sent by the Google Ads Outreach Send Dispatcher.",
       "workflowIds": [
-        "NJLi3kOJRaoB5Bu7"
+        "8FmbNamNSgCMOWx9",
+        "k3yupWbipA9Iy0oF"
       ],
       "followup": {
         "mode": "source_schedule",
@@ -120,6 +107,22 @@
         "mode": "source_schedule",
         "maxSteps": 3,
         "note": "Next touch time comes from ScheduledSendAtUTC once TouchNumber > 1."
+      }
+    },
+    {
+      "slug": "builders-outreach-rkd",
+      "name": "Builders Outreach (RK Digital Media)",
+      "channel": "email",
+      "brand": "rkdigitalmedia.in",
+      "description": "Local builder/construction-business outreach for R.K Digital Media. Rows are drafted, approved in the sheet, then sent by the 15-minute Send Dispatcher via the Hostinger Email API, rotating rohit@/hello@/growth@rkdigitalmedia.in. Replies and bounces are detected by the Reply and Bounce Capture workflow, which alerts by email and WhatsApp and writes REPLIED/BOUNCED back into the sheet's Status column.",
+      "workflowIds": [
+        "2A6OBQLXr5cWtOhA",
+        "FZ79l1VpPwx3XSLr"
+      ],
+      "followup": {
+        "mode": "source_schedule",
+        "maxSteps": 2,
+        "note": "Follow-ups are separate sheet rows (LeadID suffix -fu1/-fu2) that the Send Dispatcher sends at their ScheduledSendISO. The next follow-up is the earliest approved, unsent -fuN row."
       }
     },
     {
@@ -268,6 +271,84 @@
         ],
         "default": "google-ads-services-intl"
       },
+      "columns": {
+        "name": [
+          "Business"
+        ],
+        "email": [
+          "Email"
+        ],
+        "phone": [
+          "Phone"
+        ],
+        "city": [
+          "City"
+        ],
+        "category": [
+          "Vertical"
+        ],
+        "status": "Status",
+        "scheduledAt": "ScheduledSendISO",
+        "sender": "Send-from mailbox",
+        "subject": "Subject",
+        "draft": "Subject"
+      },
+      "blankStatus": "new",
+      "statusRules": [
+        {
+          "match": "\\bbounced\\b",
+          "state": "bounced"
+        },
+        {
+          "match": "^approved$",
+          "state": "queued"
+        },
+        {
+          "match": "^sent\\b",
+          "state": "sent"
+        },
+        {
+          "match": "^send failed",
+          "state": "failed"
+        },
+        {
+          "match": "^(drafted|draft|awaiting|pending)",
+          "state": "awaiting_approval"
+        },
+        {
+          "match": "^repl",
+          "state": "replied"
+        },
+        {
+          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|bounced|rejected)",
+          "state": "excluded"
+        },
+        {
+          "match": "^call list",
+          "state": "excluded"
+        }
+      ],
+      "history": "status_sent_iso",
+      "touchRows": {
+        "column": "LeadID",
+        "pattern": "^(.*)-fu(\\d+)$"
+      },
+      "omitColumns": [
+        "TextBody",
+        "HTMLBody",
+        "errorStack"
+      ]
+    },
+    {
+      "key": "builders_outreach_sheet",
+      "kind": "google_sheet",
+      "name": "Builders Outreach (RK Digital Media) Sheet",
+      "channel": "email",
+      "rowKey": [
+        "LeadID",
+        "Email"
+      ],
+      "campaign": "builders-outreach-rkd",
       "columns": {
         "name": [
           "Business"
@@ -831,31 +912,123 @@
   ],
   "workflows": [
     {
-      "id": "NJLi3kOJRaoB5Bu7",
-      "name": "Outreach Send Dispatcher",
+      "id": "8FmbNamNSgCMOWx9",
+      "name": "Google Ads Outreach Send Dispatcher Workflow",
       "campaign": {
         "fromSource": "gads_outreach_sheet"
       },
       "sendNodes": [
         {
-          "node": "Send via Hostinger",
+          "node": "Send Email",
           "provider": "hostinger_api",
-          "detect": "http_error_output",
+          "detect": "http_never_error",
           "sender": {
-            "field": "Send-from mailbox"
+            "field": "mailbox"
           },
           "recipient": {
-            "field": "Email"
+            "field": "email"
           },
           "leadKey": {
-            "field": "LeadID"
+            "field": "leadId"
           },
           "subject": {
-            "field": "Subject"
+            "field": "subject"
           },
           "step": {
-            "field": "LeadID",
-            "transform": "fu_suffix"
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "k3yupWbipA9Iy0oF",
+      "name": "Google Ads Outreach Follow-Up Workflow",
+      "campaign": {
+        "fromSource": "gads_outreach_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send Follow-Up",
+          "provider": "hostinger_api",
+          "detect": "http_never_error",
+          "sender": {
+            "field": "mailbox"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "leadId"
+          },
+          "name": {
+            "field": "business"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "stage"
+          }
+        }
+      ]
+    },
+    {
+      "id": "2A6OBQLXr5cWtOhA",
+      "name": "Builders Outreach (RK Digital Media) - 5 Send Dispatcher",
+      "campaign": {
+        "fromSource": "builders_outreach_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send Email",
+          "provider": "hostinger_api",
+          "detect": "http_never_error",
+          "sender": {
+            "field": "mailbox"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "leadId"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "FZ79l1VpPwx3XSLr",
+      "name": "Builders Outreach (RK Digital Media) - 6 Follow-Up",
+      "campaign": {
+        "fromSource": "builders_outreach_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send Follow-Up",
+          "provider": "hostinger_api",
+          "detect": "http_never_error",
+          "sender": {
+            "field": "mailbox"
+          },
+          "recipient": {
+            "field": "email"
+          },
+          "leadKey": {
+            "field": "leadId"
+          },
+          "name": {
+            "field": "business"
+          },
+          "subject": {
+            "field": "subject"
+          },
+          "step": {
+            "field": "stage"
           }
         }
       ]
