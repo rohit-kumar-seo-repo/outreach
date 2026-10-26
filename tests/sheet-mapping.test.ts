@@ -122,21 +122,34 @@ describe('sheet mapping', () => {
   });
 
   it('applies the WAHA workflows\' own phone rules and requires a draft message', () => {
-    const india = mapRows(src('wa_indian_business_sheet'), [
+    const dental = mapRows(src('wa_dental_no_website_sheet'), [
       { row_number: 2, Name: 'Clinic A', 'Mobile Number': '98765 43210', 'Draft Message': 'Hi', 'WhatsApp Outreach Status': '' },
       { row_number: 3, Name: 'Clinic B', 'Mobile Number': '12345', 'Draft Message': 'Hi', 'WhatsApp Outreach Status': '' },
       { row_number: 4, Name: 'Clinic C', 'Mobile Number': '9876500000', 'Draft Message': '', 'WhatsApp Outreach Status': '' },
       { row_number: 5, Name: 'Clinic D', 'Mobile Number': '9876511111', 'Draft Message': 'Hi', 'WhatsApp Outreach Status': 'Sent' },
     ]);
-    expect(india.map((r) => [r.waChatId, r.sheetState])).toEqual([
+    expect(dental.map((r) => [r.waChatId, r.sheetState])).toEqual([
       ['919876543210@c.us', 'ready'],
       [null, 'ready'],
       ['919876500000@c.us', 'new'],
       ['919876511111@c.us', 'sent'],
     ]);
-    expect(india[3].history[0]).toMatchObject({ channel: 'whatsapp', recipient: '919876511111@c.us', timeQuality: 'unknown' });
+    expect(dental[3].history[0]).toMatchObject({ channel: 'whatsapp', recipient: '919876511111@c.us', timeQuality: 'unknown' });
     const uae = mapRows(src('wa_uae_towing_sheet'), [{ row_number: 2, Name: 'Tow', Phone: '50 123 4567', 'Draft Message': 'x', 'WhatsApp Outreach Status': '' }]);
     expect(uae[0].waChatId).toBe('971501234567@c.us');
+  });
+
+  it('reads the Google Ads WhatsApp India sheet (no draft column; category typo "Catagory" supported)', () => {
+    const india = mapRows(src('wa_indian_business_sheet'), [
+      { row_number: 2, Name: 'Biz A', 'Mobile Number': '9876543210', Catagory: 'Plumber', 'WhatsApp Outreach Status': '', 'WA Sender': '' },
+      { row_number: 3, Name: 'Biz B', 'Mobile Number': '9876511111', Category: 'Electrician', 'WhatsApp Outreach Status': 'Sent', 'WA Sender': 'Shop1' },
+      { row_number: 4, Name: 'Biz C', 'Mobile Number': '9876522222', 'WhatsApp Outreach Status': 'Failed' },
+    ]);
+    expect(india.map((r) => [r.waChatId, r.sheetState, r.category])).toEqual([
+      ['919876543210@c.us', 'new', 'Plumber'],
+      ['919876511111@c.us', 'sent', 'Electrician'],
+      ['919876522222@c.us', 'failed', null],
+    ]);
   });
 
   it('counts AAR reminder stages as follow-up steps 1..n', () => {

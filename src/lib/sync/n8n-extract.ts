@@ -49,6 +49,49 @@ export function inputJsonFor(runData: RunData, run: N8nRun, item: N8nItem): Json
   return items[idx]?.json ?? null;
 }
 
+/**
+ * The JSON that `targetNode` produced for the same logical item as `item` in `run`, walking the
+ * pairedItem chain back hop by hop (the same mechanism n8n's own `$('NodeName')` expression
+ * resolution uses). Needed when a gate/check node sits between the node that built a send
+ * payload and the actual send node: that node's own output replaces $json, so the send node's
+ * immediate input no longer carries the original fields, but `targetNode`'s output still does.
+ */
+function resolveAncestorJson(runData: RunData, run: N8nRun, item: N8nItem, targetNode: string, maxHops = 12): Json | null {
+  let currentRun = run;
+  let currentItem = item;
+  for (let hop = 0; hop < maxHops; hop++) {
+    const { item: idx, input } = pairedIndex(currentItem);
+    const src = currentRun.source?.[input] ?? currentRun.source?.[0];
+    if (!src) return null;
+    const prevRun = runData[src.previousNode]?.[src.previousNodeRun ?? 0];
+    const items = prevRun?.data?.main?.[src.previousNodeOutput ?? 0] ?? [];
+    const prevItem = items[idx];
+    if (!prevItem) return null;
+    if (src.previousNode === targetNode) return prevItem.json ?? null;
+    if (!prevRun) return null;
+    currentRun = prevRun;
+    currentItem = prevItem;
+  }
+  return null;
+}
+
+/** Reads `path` ("a.b.c") off `obj`, returning undefined if any segment is missing. */
+function getPath(obj: Json | null, path: string): unknown {
+  if (!obj) return undefined;
+  let cur: unknown = obj;
+  for (const key of path.split('.')) {
+    if (cur === null || typeof cur !== 'object') return undefined;
+    cur = (cur as Json)[key];
+  }
+  return cur;
+}
+
+interface FieldCtx {
+  runData: RunData;
+  run: N8nRun;
+  item: N8nItem;
+}
+
 /** All input items that were fed into `run` (used when a node run failed as a whole). */
 function allInputs(runData: RunData, run: N8nRun): Json[] {
   const src = run.source?.[0];
@@ -57,21 +100,22 @@ function allInputs(runData: RunData, run: N8nRun): Json[] {
   return (prev?.data?.main?.[src.previousNodeOutput ?? 0] ?? []).map((i) => i.json ?? {});
 }
 
-export function resolveField(ref: FieldRef | undefined, json: Json | null): string | null {
+export function resolveField(ref: FieldRef | undefined, json: Json | null, ctx?: FieldCtx): string | null {
   if (!ref) return null;
   if (ref.const !== undefined) return String(ref.const);
   if (ref.template) {
     return ref.template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_m, k: string) => String(json?.[k] ?? ''));
   }
   if (ref.field) {
-    const v = json?.[ref.field];
+    const src = ref.node ? (ctx ? resolveAncestorJson(ctx.runData, ctx.run, ctx.item, ref.node) : null) : json;
+    const v = getPath(src, ref.field);
     return v === undefined || v === null || v === '' ? null : String(v);
   }
   return null;
 }
 
-export function resolveStep(ref: FieldRef, json: Json | null): number {
-  const raw = resolveField(ref, json);
+export function resolveStep(ref: FieldRef, json: Json | null, ctx?: FieldCtx): number {
+  const raw = resolveField(ref, json, ctx);
   if (raw === null) return 0;
   let n: number;
   switch (ref.transform) {
@@ -171,8 +215,8 @@ export function extractFromExecution(exec: N8nExecution, wf: WorkflowDef): Extra
     if (!runs) continue;
     runs.forEach((run, runIndex) => {
       const at = run.startTime ? new Date(run.startTime) : exec.startedAt ? new Date(exec.startedAt) : null;
-      const build = (json: Json | null, outcome: Outcome, itemIndex: number, outputIndex: number) => {
-        const recipient = resolveField(node.recipient, json);
+      const build = (json: Json | null, outcome: Outcome, itemIndex: number, outputIndex: number, ctx?: FieldCtx) => {
+        const recipient = resolveField(node.recipient, json, ctx);
         if (!recipient) {
           warnings.push(`${node.node} run ${runIndex} item ${itemIndex}: no recipient found in input`);
           return;
@@ -183,17 +227,17 @@ export function extractFromExecution(exec: N8nExecution, wf: WorkflowDef): Extra
           channel,
           campaignSlug: slug,
           sourceKey: leadSourceKey,
-          leadRowKey: resolveField(node.leadKey, json),
-          leadName: resolveField(node.name, json),
-          sender: resolveField(node.sender, json),
+          leadRowKey: resolveField(node.leadKey, json, ctx),
+          leadName: resolveField(node.name, json, ctx),
+          sender: resolveField(node.sender, json, ctx),
           recipient,
-          step: resolveStep(node.step, json),
+          step: resolveStep(node.step, json, ctx),
           result: outcome.result,
           provider: node.provider,
           providerStatus: outcome.providerStatus,
           errorMessage: outcome.error,
           messageId: outcome.messageId,
-          subject: resolveField(node.subject, json),
+          subject: resolveField(node.subject, json, ctx),
           source: 'n8n_execution',
           n8n: { workflowId: wf.id, executionId, node: node.node, runIndex, itemIndex },
           occurredAt: at,
@@ -213,10 +257,11 @@ export function extractFromExecution(exec: N8nExecution, wf: WorkflowDef): Extra
       const outputs = run.data?.main ?? [];
       outputs.forEach((items, outputIndex) => {
         (items ?? []).forEach((item, itemIndex) => {
+          const ctx: FieldCtx = { runData, run, item };
           const json = inputJsonFor(runData, run, item);
           if (!json) warnings.push(`${node.node} run ${runIndex}: could not trace input for item ${itemIndex}`);
-          const recipient = resolveField(node.recipient, json);
-          build(json, classify(node, outputIndex, item.json ?? {}, recipient), itemIndex, outputIndex);
+          const recipient = resolveField(node.recipient, json, ctx);
+          build(json, classify(node, outputIndex, item.json ?? {}, recipient), itemIndex, outputIndex, ctx);
         });
       });
     });

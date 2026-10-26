@@ -19,6 +19,10 @@ export type SheetState = (typeof SHEET_STATES)[number];
 const fieldRef = z.object({
   const: z.union([z.string(), z.number()]).optional(),
   field: z.string().optional(),
+  /** Read `field` (dot-path allowed) from this named ancestor node's output instead of the send
+   * node's immediate input. Needed when a gate/check node sits between the item that built the
+   * payload and the actual send node, so the immediate input no longer carries those fields. */
+  node: z.string().optional(),
   template: z.string().optional(),
   transform: z.enum(['minus_one', 'plus_one', 'fu_status', 'fu_suffix']).optional(),
 });

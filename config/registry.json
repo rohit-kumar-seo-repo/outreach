@@ -208,7 +208,7 @@
       "name": "WhatsApp — Indian Business Owners (Dental)",
       "channel": "whatsapp",
       "brand": "whatsapp:default",
-      "description": "Daily 10-message WAHA image+caption send from session 'default'.",
+      "description": "Retired (workflow inactive since 30 Sep 2026). Daily 10-message WAHA image+caption send from session 'default'. Kept only so its past sends keep this historical label; its sheet (wa_indian_business_sheet) now belongs to wa-india-gads.",
       "workflowIds": [
         "FHQnwH3bZk0LsWKW"
       ],
@@ -229,6 +229,23 @@
       "waSession": "outreach2",
       "followup": {
         "mode": "none"
+      }
+    },
+    {
+      "slug": "wa-india-gads",
+      "name": "Google Ads WhatsApp Outreach — India",
+      "channel": "whatsapp",
+      "brand": "whatsapp:india-local",
+      "description": "Google-Ads-driven local-business WhatsApp outreach (phone numbers 7011/8448). Weekday morning sender picks fresh leads by category/review/rating fit and city search demand, paces sends via WAHA, and gates through the dashboard's send window/cap. A single follow-up goes out 3-36h later if there's been no human reply.",
+      "workflowIds": [
+        "nYPmcZkXSIsVcKhQ",
+        "cH5VEk673OFcwQHI"
+      ],
+      "followup": {
+        "mode": "days_after_last",
+        "cadenceDays": [1],
+        "maxSteps": 1,
+        "note": "One follow-up, sent 3-36 hours after the first message if no human has replied (see cH5VEk673OFcwQHI's FOLLOWUP_MIN_HOURS/FOLLOWUP_MAX_HOURS in the WA Settings tab)."
       }
     },
     {
@@ -735,14 +752,14 @@
     {
       "key": "wa_indian_business_sheet",
       "kind": "google_sheet",
-      "name": "Indian Business Owner - WhatsApp Outreach (Sheet1)",
+      "name": "Google Ads WhatsApp Outreach / India (Sheet1)",
       "channel": "whatsapp",
       "rowKey": [
         "Mobile Number",
         "Name"
       ],
       "rowKeyNormalize": "phone",
-      "campaign": "wa-dental-india",
+      "campaign": "wa-india-gads",
       "phoneRule": "india10",
       "columns": {
         "name": [
@@ -755,18 +772,21 @@
           "Email",
           "Email Id"
         ],
+        "website": [
+          "Website"
+        ],
         "city": [
           "City",
           "Location"
         ],
         "category": [
+          "Catagory",
           "Category"
         ],
         "status": "WhatsApp Outreach Status",
-        "draft": "Draft Message"
+        "sender": "WA Sender"
       },
-      "blankStatus": "ready",
-      "requireDraft": true,
+      "blankStatus": "new",
       "statusRules": [
         {
           "match": "^sent$",
@@ -775,20 +795,9 @@
         {
           "match": "^failed",
           "state": "failed"
-        },
-        {
-          "match": "^repl",
-          "state": "replied"
-        },
-        {
-          "match": "^(do not contact|dnc|unsub|opt.?out|skip|excluded|invalid|blocked)",
-          "state": "excluded"
         }
       ],
-      "history": "wa_status",
-      "omitColumns": [
-        "Draft Message"
-      ]
+      "history": "wa_status"
     },
     {
       "key": "wa_dental_no_website_sheet",
@@ -1560,6 +1569,74 @@
           },
           "step": {
             "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "nYPmcZkXSIsVcKhQ",
+      "name": "Google Ads WhatsApp Outreach / India (7011 + 8448) - 1 Morning Sender",
+      "campaign": {
+        "slug": "wa-india-gads",
+        "source": "wa_indian_business_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via WAHA",
+          "provider": "waha",
+          "detect": "waha_key",
+          "sender": {
+            "node": "Compute Delay",
+            "field": "payload.session"
+          },
+          "recipient": {
+            "node": "Compute Delay",
+            "field": "payload.chatId"
+          },
+          "leadKey": {
+            "node": "Compute Delay",
+            "field": "phone"
+          },
+          "name": {
+            "node": "Compute Delay",
+            "field": "name"
+          },
+          "step": {
+            "const": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "cH5VEk673OFcwQHI",
+      "name": "Google Ads WhatsApp Outreach / India (7011 + 8448) - 2 Follow-up (3 hours after first message)",
+      "campaign": {
+        "slug": "wa-india-gads",
+        "source": "wa_indian_business_sheet"
+      },
+      "sendNodes": [
+        {
+          "node": "Send via WAHA",
+          "provider": "waha",
+          "detect": "waha_key",
+          "sender": {
+            "node": "Compute Delay",
+            "field": "payload.session"
+          },
+          "recipient": {
+            "node": "Compute Delay",
+            "field": "payload.chatId"
+          },
+          "leadKey": {
+            "node": "Compute Delay",
+            "field": "phone"
+          },
+          "name": {
+            "node": "Compute Delay",
+            "field": "name"
+          },
+          "step": {
+            "const": 1
           }
         }
       ]

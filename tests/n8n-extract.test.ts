@@ -171,6 +171,46 @@ describe('n8n execution extraction', () => {
     ]);
   });
 
+  it('resolves a WAHA send node whose immediate input is a gate response, by reading a named ancestor several hops back (dot-path into its nested payload)', () => {
+    // Mirrors the real Morning Sender graph: Compute Delay -> Wait (pacing) -> Check Send
+    // Allowed -> Allowed? -> Send via WAHA. The gate call overwrites $json with its own
+    // response, so only Compute Delay's output still carries chatId/session/name.
+    const chain = (prevNode: string) => [{ previousNode: prevNode, previousNodeOutput: 0, previousNodeRun: 0 }];
+    const { attempts, warnings } = extractFromExecution(
+      {
+        id: '700',
+        workflowId: 'nYPmcZkXSIsVcKhQ',
+        data: {
+          resultData: {
+            runData: {
+              'Compute Delay': [
+                { data: { main: [[{ json: { phone: '9999900001', name: 'Biz A', endpoint: '/api/sendText', payload: { session: 'in_shop1', chatId: '919999900001@c.us', text: 'hi' }, delaySeconds: 40 } }]] } },
+              ],
+              'Wait (pacing)': [{ source: chain('Compute Delay'), data: { main: [[{ json: { phone: '9999900001', name: 'Biz A', endpoint: '/api/sendText', payload: { session: 'in_shop1', chatId: '919999900001@c.us', text: 'hi' }, delaySeconds: 40 }, pairedItem: { item: 0 } }]] } }],
+              'Check Send Allowed': [{ source: chain('Wait (pacing)'), data: { main: [[{ json: { allowed: true, reason: 'ok' }, pairedItem: { item: 0 } }]] } }],
+              'Allowed?': [{ source: chain('Check Send Allowed'), data: { main: [[{ json: { allowed: true, reason: 'ok' }, pairedItem: { item: 0 } }]] } }],
+              'Send via WAHA': [{ startTime: 42, source: chain('Allowed?'), data: { main: [[{ json: { key: { id: 'WAHA123' } }, pairedItem: { item: 0 } }]] } }],
+            },
+          },
+        },
+      },
+      wf('nYPmcZkXSIsVcKhQ'),
+    );
+    expect(warnings).toEqual([]);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({
+      campaignSlug: 'wa-india-gads',
+      channel: 'whatsapp',
+      recipient: '919999900001@c.us',
+      sender: 'in_shop1',
+      leadName: 'Biz A',
+      leadRowKey: '9999900001',
+      result: 'accepted',
+      messageId: 'WAHA123',
+      step: 0,
+    });
+  });
+
   it('marks every input item unknown when a send node fails as a whole', () => {
     const { attempts, warnings } = extractFromExecution(
       {
