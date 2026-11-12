@@ -105,6 +105,8 @@ d('pipeline: sheets + n8n + mailbox → leads, replies, bounces, metrics', () =>
     // Mailboxes: Sent copy of the Dubai send, a reply to it, a reply from Alpha, a bounce for Echo, a stranger.
     const mb = async (addr: string) => (await db.one<{ id: number }>(`select id from mailboxes where address = $1`, [addr]))!.id;
     const hello = await mb('hello@rohitkumarseo.tech');
+    // agency@ is retired from the registry but its historical mail is still synced, so the row is made here.
+    await db.q(`insert into mailboxes (address, domain, provider) values ('agency@adssuspensionrecovery.com', 'adssuspensionrecovery.com', 'hostinger_api') on conflict (address) do nothing`);
     const agency = await mb('agency@adssuspensionrecovery.com');
     const ins = `insert into mail_messages (mailbox_id, folder, uid, message_id, in_reply_to, direction, from_addr, to_addrs, counterpart, subject, sent_at, kind, thread_key)
                  values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`;

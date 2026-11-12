@@ -139,6 +139,35 @@ export async function deriveLeads(): Promise<void> {
         where l.id = x.id and (l.outcome, l.outcome_on) is distinct from (x.outcome, x.occurred_on)`,
     );
 
+    // 3c. Pipeline stage from a sheet's own sales-stage column (e.g. "Lead Stage" written by the
+    //     reply-handling workflow). Fills an empty stage and keeps a sheet-sourced stage in step
+    //     with the sheet; a stage a person set (or a recorded outcome) is never overwritten.
+    //     Mirrors stageFromSheetText() in src/lib/crm/stages.ts.
+    for (const src of registry().sources) {
+      const col = src.columns.pipelineStage;
+      if (!col) continue;
+      await q(
+        `with m as (
+           select l.id, case
+                    when coalesce(btrim(l.raw->>$3), '') <> '' then 'meeting'
+                    when t ~* '(booked|meeting|call scheduled|demo)' then 'meeting'
+                    when t ~* '(not interested|opt.?out|unsubscrib|declin|\\ylost\\y)' then 'lost'
+                    when t ~* '(\\ywon\\y|signed|paid|converted)' then 'won'
+                    when t ~* '(proposal|quote sent)' then 'proposal'
+                    when t ~* '(interest|link sent|pricing|price)' then 'interested'
+                    when t ~* '(handl|contacted|in talks|spoke|called)' then 'contacted'
+                  end as st
+             from leads l join sources s on s.id = l.source_id
+             cross join lateral (select coalesce(l.raw->>$2, '') as t) x
+            where s.key = $1)
+         update leads l set stage = m.st, stage_source = 'sheet', stage_changed_at = now()
+           from m
+          where l.id = m.id and m.st is not null and l.stage is distinct from m.st
+            and (l.stage is null or l.stage_source = 'sheet')`,
+        [src.key, col, src.columns.meetingTime ?? ''],
+      );
+    }
+
     // 4. Next follow-up per the campaign's real sequence rules (see config/registry.json).
     //    A lead with a recorded outcome (e.g. meeting booked, lost) gets no automatic follow-up date.
     for (const camp of registry().campaigns) {

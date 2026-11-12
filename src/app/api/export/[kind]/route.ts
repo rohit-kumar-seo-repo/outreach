@@ -5,7 +5,8 @@ import { q } from '@/lib/db';
 import { env } from '@/lib/env';
 import { campaignStats } from '@/lib/metrics/campaigns';
 import { parseFilters } from '@/lib/metrics/filters';
-import { listLeads } from '@/lib/metrics/leads';
+import { listPipeline, type PipelineView } from '@/lib/crm/queries';
+import { isStage } from '@/lib/crm/stages';
 import { localDate } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
@@ -85,11 +86,49 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ kind
       [tz, f.from, f.to],
     );
   } else if (kind === 'leads') {
+    // Same filters as the Leads page, so "Export" downloads exactly the view on screen.
+    const legacy = !!(sp.status || sp.followup || sp.outcome);
+    const rawView = sp.view ?? (legacy ? 'contacts' : 'open');
+    const view: PipelineView = rawView === 'all' || rawView === 'contacts' || rawView === 'open' || isStage(rawView) ? (rawView as PipelineView) : 'open';
+    const followup = sp.followup === 'due' || sp.followup === 'today' || sp.followup === 'overdue' ? sp.followup : null;
     const all: Record<string, unknown>[] = [];
-    for (let page = 1; page <= 200; page++) {
-      const { rows: r } = await listLeads({ campaign: sp.campaign, status: sp.status, outcome: sp.outcome, search: sp.q, page, pageSize: 200 });
-      all.push(...(r as unknown as Record<string, unknown>[]));
-      if (r.length < 200) break;
+    for (let offset = 0; offset < 40_000; offset += 300) {
+      const { rows: r } = await listPipeline({
+        view,
+        campaign: sp.campaign || null,
+        channel: sp.channel === 'email' || sp.channel === 'whatsapp' ? sp.channel : null,
+        search: sp.q || null,
+        due: sp.due === '1',
+        starred: sp.starred === '1',
+        status: sp.status || null,
+        followup,
+        outcome: sp.outcome || null,
+        limit: 300,
+        offset,
+      });
+      for (const l of r) {
+        all.push({
+          lead_id: l.id,
+          name: l.name,
+          stage: l.stage ?? '',
+          starred: l.starred ? 'yes' : '',
+          phone: l.links.phoneLabel ?? l.phone ?? '',
+          email: l.email ?? '',
+          city: l.city ?? '',
+          category: l.category ?? '',
+          campaign: l.campaignName,
+          channel: l.channel,
+          reminder_at: l.reminderAt,
+          last_reply_at: l.lastReplyAt,
+          last_reply: l.replyText ?? '',
+          last_call_at: l.lastCallAt,
+          last_call_outcome: l.lastCallOutcome ?? '',
+          calls: l.callCount,
+          deal_value: l.dealValue ?? '',
+          deal_currency: l.dealCurrency ?? '',
+        });
+      }
+      if (r.length < 300) break;
     }
     rows = all;
   } else if (kind === 'outcomes') {

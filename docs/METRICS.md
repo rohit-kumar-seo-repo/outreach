@@ -90,7 +90,7 @@ Failed sends are shown as a count ("failed, never accepted"), not as a rate.
 
 ## Business outcomes
 
-Outcomes are recorded by hand on a lead's page (Leads → a lead → **Business outcome**): qualified, meeting booked, won or lost, with the date it happened. A won outcome can carry a deal value and currency.
+Outcomes come from the lead's pipeline stage. Moving a lead to Interested or Proposal records **qualified**, Meeting records **meeting booked**, Won records **won** and Lost records **lost**, dated the day of the change. New and Contacted record nothing. Outcomes recorded before the pipeline existed became the starting stage of their lead. The deal value lives on the lead (Leads → a lead → **Deal value**).
 
 - Every entry is kept, so a lead can move qualified → meeting booked → won. The lead's current outcome is its latest entry by date (`leads.outcome`).
 - Entries are counted under the lead's campaign.
@@ -211,6 +211,21 @@ Each lead's status is derived in this priority order (`src/lib/sync/derive.ts`):
 17. Needs draft
 
 Every status can be traced to an event or to a sheet value.
+
+## Pipeline stage
+
+A lead's stage (Leads, Today, Call mode) is, in order:
+
+1. the stage a person set on the lead (picker, board, or a logged call);
+2. otherwise the stage written in the sheet's own sales-stage column (`pipelineStage` in `config/registry.json`, e.g. "Lead Stage": "Booked…" → Meeting, "Interested…" / "link sent" → Interested, "Handled…" → Contacted, "Not interested" → Lost; a filled `meetingTime` column → Meeting). This keeps following the sheet until a person changes the stage;
+3. otherwise, for a lead that replied: **Lost** if the reply was classified not interested / unsubscribe, else **New**;
+4. otherwise the lead is not in the pipeline (it still appears under Leads → All contacts).
+
+A lead enters the pipeline when it replies or when you log a call on it (a call where you spoke moves New / unstaged leads to Contacted).
+
+**Reminders** are the follow-ups you set yourself (Today, the lead page, the call logger). A call with no answer sets one for tomorrow 10:00, a busy line for 3 hours later, unless you pick otherwise. Logging a call clears a reminder that was already due. Won and Lost clear reminders. These are separate from the automatic sequence follow-ups n8n sends.
+
+**Call mode queue**: open-stage leads with a callable number, in this order: reminders that are due (oldest first), New replies (newest first), leads not called in 3 days, starred. A lead is skipped if it was called in the last 2 hours (unless a reminder fell due after that call), has a reminder in the future, or its last call was a wrong number.
 
 ## Spreadsheet capacity
 

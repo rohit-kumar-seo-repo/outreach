@@ -308,7 +308,10 @@
         "scheduledAt": "ScheduledSendISO",
         "sender": "Send-from mailbox",
         "subject": "Subject",
-        "draft": "Subject"
+        "draft": "Subject",
+        "pipelineStage": "Lead Stage",
+        "meetingTime": "Meeting Time",
+        "replyNote": "Reply Note"
       },
       "blankStatus": "new",
       "statusRules": [
@@ -358,6 +361,7 @@
     },
     {
       "key": "builders_outreach_sheet",
+      "dialCode": "91",
       "kind": "google_sheet",
       "name": "Builders Outreach (RK Digital Media) Sheet",
       "channel": "email",
@@ -386,7 +390,10 @@
         "scheduledAt": "ScheduledSendISO",
         "sender": "Send-from mailbox",
         "subject": "Subject",
-        "draft": "Subject"
+        "draft": "Subject",
+        "pipelineStage": "Lead Stage",
+        "meetingTime": "Meeting Time",
+        "replyNote": "Reply Note"
       },
       "blankStatus": "new",
       "statusRules": [
@@ -513,6 +520,7 @@
     },
     {
       "key": "agency_india_tracker",
+      "dialCode": "91",
       "kind": "google_sheet",
       "name": "Agency Outreach - India Tracker",
       "channel": "email",
@@ -575,6 +583,7 @@
     },
     {
       "key": "aesthetic_clinics_sheet",
+      "dialCode": "91",
       "kind": "google_sheet",
       "name": "Aesthetic Clinic Data",
       "channel": "email",
@@ -636,6 +645,7 @@
     },
     {
       "key": "dubai_real_estate_sheet",
+      "dialCode": "971",
       "kind": "google_sheet",
       "name": "Dubai Real Estate Outreach",
       "channel": "email",
@@ -751,6 +761,7 @@
     },
     {
       "key": "wa_indian_business_sheet",
+      "dialCode": "91",
       "kind": "google_sheet",
       "name": "Google Ads WhatsApp Outreach / India (Sheet1)",
       "channel": "whatsapp",
@@ -801,6 +812,7 @@
     },
     {
       "key": "wa_dental_no_website_sheet",
+      "dialCode": "91",
       "kind": "google_sheet",
       "name": "Indian Business Owner - WhatsApp Outreach (Dental Clinic with No Websites)",
       "channel": "whatsapp",
@@ -859,6 +871,7 @@
     },
     {
       "key": "wa_uae_towing_sheet",
+      "dialCode": "971",
       "kind": "google_sheet",
       "name": "UAE Towing Emergency Services Leads",
       "channel": "whatsapp",

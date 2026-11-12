@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
-/* Rohit Kumar SEO Outreach — light workspace, dark navy navigation, blue accents,
-   restrained teal/green status colors. */
+/* Rohit Kumar SEO Outreach — calm light workspace, blue accents, colour-coded pipeline stages.
+   Built phone-first: big tap targets, bottom navigation, safe-area aware. */
 @theme {
   --color-navy-950: #0a1426;
   --color-navy-900: #0f1d36;
   --color-navy-800: #172a4b;
   --color-navy-700: #22375e;
   --color-navy-300: #9fb0cf;
-  --color-canvas: #f4f6fa;
+  --color-canvas: #f6f7f9;
   --color-card: #ffffff;
-  --color-line: #e3e7ef;
-  --color-line-strong: #cfd6e3;
+  --color-line: #e6e9ef;
+  --color-line-strong: #d3d9e3;
   --color-ink: #0f172a;
-  --color-ink-2: #475569;
-  --color-ink-3: #7b8699;
+  --color-ink-2: #4b5567;
+  --color-ink-3: #7a8497;
   --color-brand: #2563eb;
   --color-brand-600: #1d4ed8;
   --color-brand-50: #eef4ff;
@@ -31,6 +31,8 @@
   --color-critical: #d03b3b;
   --color-critical-50: #fdeeee;
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.03);
+  --shadow-pop: 0 12px 32px -8px rgba(16, 24, 40, 0.18), 0 4px 8px -4px rgba(16, 24, 40, 0.08);
 }
 
 :root {
@@ -43,6 +45,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Every link, button and clickable row gets a smooth hover/active transition by default, so a
@@ -62,8 +65,82 @@ tr {
   .card {
     background: var(--color-card);
     border: 1px solid var(--color-line);
-    border-radius: 12px;
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
     transition: box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  /* Square, finger-sized icon button (top bars, card actions). */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    color: var(--color-ink-2);
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .icon-btn:hover {
+    background: #eef1f5;
+    color: var(--color-ink);
+  }
+  .icon-btn:active {
+    transform: scale(0.94);
+  }
+
+  /* Round contact action (call / WhatsApp / email) on lead cards. */
+  .contact-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    transition: background-color 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
+  }
+  .contact-btn:active {
+    transform: scale(0.92);
+  }
+
+  /* Selectable pill (filters, quick picks, stage picker). */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 34px;
+    background: #fff;
+    color: var(--color-ink-2);
+    box-shadow: inset 0 0 0 1px var(--color-line-strong);
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  }
+  .chip:hover {
+    background: #f4f6fa;
+  }
+  .chip:active {
+    transform: scale(0.96);
+  }
+  .chip[aria-pressed='true'],
+  .chip[aria-current='page'],
+  .chip[aria-selected='true'] {
+    background: var(--color-ink);
+    color: #fff;
+    box-shadow: none;
+  }
+
+  /* Hide a horizontal scroller's scrollbar (stage tabs, quick picks) but keep it scrollable. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 
   .table-compact th {
@@ -105,6 +182,15 @@ tr {
     outline: 2px solid var(--color-brand);
     outline-offset: 1px;
   }
+  /* iOS zooms into inputs under 16px; phones get 16px fields. */
+  @media (max-width: 640px) {
+    .field,
+    textarea.field,
+    select.field {
+      font-size: 16px;
+      min-height: 42px;
+    }
+  }
 
   .btn {
     display: inline-flex;
@@ -144,6 +230,30 @@ tr {
     min-height: 28px;
     padding: 3px 9px;
     font-size: 12px;
+  }
+  /* Big touch action (lead page action bar, call mode). */
+  .btn-lg {
+    min-height: 48px;
+    padding: 10px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+  }
+  .btn-call {
+    background: #059669;
+    border-color: #059669;
+    color: #fff;
+  }
+  .btn-call:hover {
+    background: #047857;
+  }
+  .btn-wa {
+    background: #25d366;
+    border-color: #25d366;
+    color: #06371b;
+  }
+  .btn-wa:hover {
+    background: #1fbd5a;
   }
 
   a.link,

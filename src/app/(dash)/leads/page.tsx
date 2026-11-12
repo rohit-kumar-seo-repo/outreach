@@ -1,162 +1,150 @@
 import Link from 'next/link';
-import { LEAD_STATUS, LeadStatus, OUTCOME, OutcomeBadge } from '@/components/status';
-import { Card, EmptyState, fmt, PageHeader } from '@/components/ui';
+import { Download } from 'lucide-react';
+import { LeadList } from '@/components/crm/LeadList';
+import { LeadFilters } from '@/components/crm/LeadFilters';
+import { PipelineBoard } from '@/components/crm/PipelineBoard';
+import { EmptyState, fmt } from '@/components/ui';
 import { campaignOptions } from '@/lib/metrics/campaigns';
-import { listLeads, statusSummary } from '@/lib/metrics/leads';
-import { formatDate, formatDateTime } from '@/lib/time';
+import { presentAll } from '@/lib/crm/present';
+import { listPipeline, stageCounts, type PipelineQuery, type PipelineView } from '@/lib/crm/queries';
+import { OPEN_STAGES, STAGES, STAGE_META, isStage, type Stage } from '@/lib/crm/stages';
+import { LEAD_STATUS } from '@/components/status';
 
-export const metadata = { title: 'Leads & follow-ups' };
+export const metadata = { title: 'Leads' };
 
 type SP = Record<string, string | undefined>;
+const PAGE = 60;
 
-function qs(sp: SP, patch: SP) {
+function qs(sp: SP, patch: SP): string {
   const u = new URLSearchParams();
   for (const [k, v] of Object.entries({ ...sp, ...patch })) if (v) u.set(k, v);
+  u.delete('focus');
   const s = u.toString();
   return s ? `/leads?${s}` : '/leads';
 }
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
+  const legacy = !!(sp.status || sp.followup || sp.outcome);
+  const rawView = sp.view ?? (legacy ? 'contacts' : 'open');
+  const view: PipelineView = rawView === 'all' || rawView === 'contacts' || rawView === 'open' || isStage(rawView) ? (rawView as PipelineView) : 'open';
   const followup = sp.followup === 'due' || sp.followup === 'today' || sp.followup === 'overdue' ? sp.followup : null;
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
-  const [{ rows, total }, summary, campaigns] = await Promise.all([
-    listLeads({ campaign: sp.campaign, status: sp.status, outcome: sp.outcome, search: sp.q, followup, page, pageSize: 50 }),
-    statusSummary(),
+  const channel = sp.channel === 'email' || sp.channel === 'whatsapp' ? sp.channel : null;
+  const base: Omit<PipelineQuery, 'view'> = {
+    campaign: sp.campaign || null,
+    channel,
+    search: sp.q || null,
+    due: sp.due === '1',
+    starred: sp.starred === '1',
+    status: sp.status || null,
+    followup,
+    outcome: sp.outcome || null,
+  };
+  const board = sp.mode === 'board' && view !== 'contacts';
+  const boardStages: Stage[] = view === 'all' || view === 'open' ? [...OPEN_STAGES, 'won'] : isStage(view) ? [view] : OPEN_STAGES;
+
+  const [counts, campaigns, data] = await Promise.all([
+    stageCounts(base),
     campaignOptions(),
+    board
+      ? Promise.all(boardStages.map((s) => listPipeline({ ...base, view: s, limit: 40 }).then((r) => [s, r] as const)))
+      : listPipeline({ ...base, view, limit: PAGE, offset: (page - 1) * PAGE }),
   ]);
-  const tabs = [
-    { key: null, label: 'All leads' },
-    { key: 'due', label: 'Follow-ups due (today + overdue)' },
-    { key: 'today', label: 'Due today' },
-    { key: 'overdue', label: 'Overdue' },
+  const openTotal = OPEN_STAGES.reduce((n, s) => n + counts[s], 0);
+  const tabs: { key: PipelineView; label: string; n: number; dot?: string }[] = [
+    { key: 'open', label: 'Open', n: openTotal },
+    ...STAGES.map((s) => ({ key: s as PipelineView, label: STAGE_META[s].short, n: counts[s], dot: STAGE_META[s].dot })),
+    { key: 'contacts', label: 'All contacts', n: counts.contacts },
   ];
+
+  let list = null;
+  let total = 0;
+  if (!Array.isArray(data)) {
+    const d = data as Awaited<ReturnType<typeof listPipeline>>;
+    total = d.total;
+    list = presentAll(d.rows);
+  }
+
   return (
     <>
-      <PageHeader
-        title="Leads & follow-ups"
-        subtitle="Every lead from every connected sheet, with its outreach history and next follow-up. Nothing here sends a message."
-        actions={
-          <a className="btn" href={`/api/export/leads${qs(sp, {}).replace('/leads', '')}`}>
-            Export CSV
-          </a>
-        }
-      />
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-tight text-ink">Leads</h1>
+          <p className="mt-0.5 text-[13.5px] text-ink-2">Everyone who responded to outreach, by stage. Tap a lead to call, message or update it.</p>
+        </div>
+        <a className="btn hidden sm:inline-flex" href={`/api/export/leads${qs(sp, {}).replace('/leads', '')}`}>
+          <Download size={15} aria-hidden /> Export
+        </a>
+      </div>
+
+      <div className="pb-3">
+        <LeadFilters campaigns={campaigns.map((c) => ({ value: c.slug, label: c.name }))} showModeToggle={view !== 'contacts'} />
+      </div>
+
+      <nav className="no-scrollbar -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Stages">
         {tabs.map((t) => (
-          <Link key={t.label} href={qs(sp, { followup: t.key ?? undefined, page: undefined })} className={`rounded-full px-3 py-1 text-[12.5px] ${followup === t.key ? 'bg-brand text-white' : 'bg-white text-ink-2 ring-1 ring-line hover:bg-slate-50'}`}>
+          <Link key={t.key} href={qs(sp, { view: t.key === 'open' ? undefined : t.key, page: undefined, status: undefined, followup: undefined, outcome: undefined })} aria-current={view === t.key ? 'page' : undefined} className="chip">
+            {t.dot && <span className={`h-2 w-2 rounded-full ${t.dot}`} aria-hidden />}
             {t.label}
+            <span className={`tabular ${view === t.key ? 'text-white/70' : 'text-ink-3'}`}>{fmt(t.n)}</span>
           </Link>
         ))}
-      </div>
-      <form method="get" className="card mb-4 flex flex-wrap items-end gap-2 px-3 py-3 text-[13px]">
-        {followup && <input type="hidden" name="followup" value={followup} />}
-        <select name="campaign" defaultValue={sp.campaign ?? ''} className="field" aria-label="Campaign">
-          <option value="">All campaigns</option>
-          {campaigns.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select name="status" defaultValue={sp.status ?? ''} className="field" aria-label="Status">
-          <option value="">All statuses</option>
-          {Object.entries(LEAD_STATUS).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label} ({fmt(summary[k] ?? 0)})
-            </option>
-          ))}
-        </select>
-        <select name="outcome" defaultValue={sp.outcome ?? ''} className="field" aria-label="Outcome">
-          <option value="">Any outcome</option>
-          <option value="any">Has an outcome</option>
-          {Object.entries(OUTCOME).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </select>
-        <input name="q" defaultValue={sp.q ?? ''} placeholder="Search name, email, phone or row key" className="field min-w-64 flex-1" />
-        <button className="btn btn-primary">Apply</button>
-        <Link href="/leads" className="btn">
-          Reset
-        </Link>
-      </form>
-      <Card title={`${fmt(total)} lead${total === 1 ? '' : 's'}`} pad={false}>
-        {rows.length === 0 ? (
-          <EmptyState title={followup ? 'No follow-ups due' : 'No leads match'}>
-            {followup ? 'Nothing is due for the selected filters.' : 'Leads appear here once the spreadsheets are synced through the n8n Data Bridge.'}
+      </nav>
+
+      {legacy && (
+        <p className="mb-3 text-[12.5px] text-ink-3">
+          Showing {sp.status ? `status “${LEAD_STATUS[sp.status]?.label ?? sp.status}”` : ''}
+          {sp.followup ? ` sequence follow-ups ${sp.followup}` : ''}
+          {sp.outcome ? ` outcome ${sp.outcome}` : ''}.{' '}
+          <Link href="/leads" className="link">
+            Clear
+          </Link>
+        </p>
+      )}
+
+      {board ? (
+        <PipelineBoard
+          stages={boardStages}
+          columns={Object.fromEntries((data as (readonly [Stage, Awaited<ReturnType<typeof listPipeline>>])[]).map(([s, r]) => [s, presentAll(r.rows)]))}
+          totals={Object.fromEntries((data as (readonly [Stage, Awaited<ReturnType<typeof listPipeline>>])[]).map(([s, r]) => [s, r.total]))}
+        />
+      ) : list && list.length > 0 ? (
+        <>
+          <LeadList leads={list} showStage={!isStage(view)} />
+          {total > PAGE && (
+            <div className="mt-5 flex items-center justify-between text-[13px] text-ink-2">
+              {page > 1 ? (
+                <Link className="btn" href={qs(sp, { page: String(page - 1) })}>
+                  ← Previous
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="tabular">
+                {fmt((page - 1) * PAGE + 1)}–{fmt(Math.min(page * PAGE, total))} of {fmt(total)}
+              </span>
+              {page * PAGE < total ? (
+                <Link className="btn" href={qs(sp, { page: String(page + 1) })}>
+                  Next →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="card">
+          <EmptyState title={sp.q ? `Nothing matches “${sp.q}”` : view === 'new' ? 'No new replies' : 'No leads here yet'}>
+            {sp.q
+              ? 'Try a shorter name, part of the phone number, or the “All contacts” tab.'
+              : view === 'contacts'
+                ? 'Leads appear once the spreadsheets sync through the n8n Data Bridge.'
+                : 'Leads land in the pipeline when they reply, or when you log a call or set a stage on them.'}
           </EmptyState>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table-compact w-full min-w-[1100px]">
-              <thead>
-                <tr>
-                  <th>Lead</th>
-                  <th>Contact</th>
-                  <th>Campaign · source</th>
-                  <th>Status</th>
-                  <th>Sheet status</th>
-                  <th className="text-right">Sends</th>
-                  <th>Last contacted</th>
-                  <th>Latest reply</th>
-                  <th>Next follow-up</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((l) => (
-                  <tr key={l.id}>
-                    <td className="max-w-56">
-                      <Link href={`/leads/${l.id}`} className="link font-medium">
-                        {l.name || l.email || l.phone || `Lead #${l.id}`}
-                      </Link>
-                    </td>
-                    <td className="text-[12px] text-ink-2">
-                      {l.email && <div>{l.email}</div>}
-                      {l.phone && <div>{l.phone}</div>}
-                      {l.waChatId && l.channel === 'whatsapp' && <div className="text-ink-3">WhatsApp {l.waChatId.replace('@c.us', '')}</div>}
-                    </td>
-                    <td className="text-[12px]">
-                      <Link href={`/campaigns/${l.campaignSlug}`} className="link">
-                        {l.campaignName}
-                      </Link>
-                      <div className="text-ink-3">
-                        {l.sourceName}
-                        {l.rowNumber ? ` · row ${l.rowNumber}` : ''}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex flex-wrap gap-1">
-                        <LeadStatus status={l.status} />
-                        <OutcomeBadge outcome={l.outcome} />
-                      </div>
-                    </td>
-                    <td className="max-w-48 truncate text-[12px] text-ink-2" title={l.sheetStatus ?? ''}>
-                      {l.sheetStatus || '(blank)'}
-                    </td>
-                    <td className="text-right tabular">
-                      {l.sendsAccepted}
-                      {l.followupsAccepted > 0 && <span className="text-ink-3"> ({l.followupsAccepted} FU)</span>}
-                    </td>
-                    <td className="whitespace-nowrap text-[12px]">{l.lastContactedAt ? formatDate(l.lastContactedAt) : '—'}</td>
-                    <td className="whitespace-nowrap text-[12px]">{l.lastReplyAt ? formatDateTime(l.lastReplyAt) : '—'}</td>
-                    <td className="whitespace-nowrap text-[12px]">{l.nextFollowupAt ? formatDate(l.nextFollowupAt) : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {total > 50 && (
-          <div className="flex items-center justify-between border-t border-line px-4 py-2 text-xs text-ink-2">
-            {page > 1 ? <Link className="link" href={qs(sp, { page: String(page - 1) })}>← Previous</Link> : <span />}
-            <span>
-              Page {page} of {Math.ceil(total / 50)}
-            </span>
-            {page * 50 < total ? <Link className="link" href={qs(sp, { page: String(page + 1) })}>Next →</Link> : <span />}
-          </div>
-        )}
-      </Card>
+        </div>
+      )}
     </>
   );
 }

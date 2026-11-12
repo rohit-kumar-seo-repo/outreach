@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // protected layout, route handler and server action via requireSession().
 // /api/whatsapp/media is deliberately public: WAHA (outside this app, no session cookie) must be
 // able to fetch a template's uploaded media by its unguessable id — see docs/WHATSAPP.md.
-const PUBLIC = [/^\/login$/, /^\/api\/health$/, /^\/api\/ingest\//, /^\/api\/whatsapp\/media\//, /^\/favicon\.svg$/, /^\/robots\.txt$/];
+const PUBLIC = [/^\/login$/, /^\/api\/health$/, /^\/api\/ingest\//, /^\/api\/whatsapp\/media\//, /^\/favicon\.svg$/, /^\/robots\.txt$/, /^\/manifest\.webmanifest$/, /^\/(apple-touch-icon|icon-[a-z0-9-]+)\.png$/];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

@@ -6,7 +6,6 @@ import { one, q, tx } from '@/lib/db';
 import { digitsOnly, normalizeEmail } from '@/lib/normalize';
 import { deriveLeads } from '@/lib/sync/derive';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts, type AlertSettings } from '@/lib/alerts';
-import { localDate } from '@/lib/time';
 
 async function guard(): Promise<string> {
   await assertSameOrigin();
@@ -101,20 +100,6 @@ export async function setThreadFollowup(form: FormData): Promise<void> {
   revalidatePath('/inbox');
 }
 
-export async function updateLeadNotes(form: FormData): Promise<void> {
-  const actor = await guard();
-  const id = Number(form.get('leadId'));
-  const notes = String(form.get('notes') ?? '').slice(0, 5000);
-  const due = String(form.get('followup') ?? '');
-  await q(
-    `update leads set notes = nullif($2, ''), manual_followup_at = case when $3 = '' then null else ($3::timestamp at time zone $4) end where id = $1`,
-    [id, notes, /^\d{4}-\d{2}-\d{2}$/.test(due) ? `${due} 09:00` : '', process.env.APP_TIMEZONE ?? 'Asia/Kolkata'],
-  );
-  await audit(actor, 'update_lead', String(id));
-  await deriveLeads();
-  revalidatePath(`/leads/${id}`);
-}
-
 export async function addSuppression(form: FormData): Promise<void> {
   const actor = await guard();
   const channel = form.get('channel') === 'whatsapp' ? 'whatsapp' : 'email';
@@ -168,47 +153,6 @@ export async function signOutEverywhere(): Promise<void> {
   const n = await revokeAllSessions();
   await audit(actor, 'revoke_all_sessions', '', { n });
   revalidatePath('/settings');
-}
-
-// ---------------------------------------------------------------------------------------------
-// Business outcomes
-
-const OUTCOMES = new Set(['qualified', 'meeting_booked', 'won', 'lost']);
-
-export async function recordOutcome(form: FormData): Promise<void> {
-  const actor = await guard();
-  const leadId = Number(form.get('leadId'));
-  const outcome = String(form.get('outcome') ?? '');
-  const date = String(form.get('date') ?? '') || localDate();
-  const valueRaw = String(form.get('value') ?? '').replace(/[, ]/g, '');
-  const value = valueRaw === '' ? null : Number(valueRaw);
-  const currency = String(form.get('currency') ?? '').toUpperCase();
-  const note = String(form.get('note') ?? '').trim().slice(0, 1000) || null;
-  if (!Number.isInteger(leadId) || !OUTCOMES.has(outcome) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > localDate()) return;
-  if (value !== null && (!Number.isFinite(value) || value < 0 || value > 1e12)) return;
-  const lead = await one<{ campaign_id: number }>('select campaign_id from leads where id = $1', [leadId]);
-  if (!lead) return;
-  await q(
-    `insert into lead_outcomes (lead_id, campaign_id, outcome, occurred_on, value, currency, note, recorded_by)
-     values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [leadId, lead.campaign_id, outcome, date, value, value !== null && /^[A-Z]{3}$/.test(currency) ? currency : null, note, actor],
-  );
-  await audit(actor, 'record_outcome', String(leadId), { outcome, date, value });
-  await deriveLeads();
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/campaigns');
-}
-
-export async function deleteOutcome(form: FormData): Promise<void> {
-  const actor = await guard();
-  const id = Number(form.get('id'));
-  if (!Number.isInteger(id)) return;
-  const row = await one<{ lead_id: number; outcome: string }>('delete from lead_outcomes where id = $1 returning lead_id, outcome', [id]);
-  if (!row) return;
-  await audit(actor, 'delete_outcome', String(row.lead_id), { outcome: row.outcome });
-  await deriveLeads();
-  revalidatePath(`/leads/${row.lead_id}`);
-  revalidatePath('/campaigns');
 }
 
 // ---------------------------------------------------------------------------------------------

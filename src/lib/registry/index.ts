@@ -63,6 +63,8 @@ const source = z.object({
     }),
   ]),
   phoneRule: z.enum(['india10', 'uae', 'any']).optional(),
+  /** Country dialing code for numbers the sheet stores without one (e.g. "91"), for call/WhatsApp links. */
+  dialCode: z.string().regex(/^\d{1,4}$/).optional(),
   columns: z.object({
     name: z.array(z.string()).optional(),
     email: z.array(z.string()).optional(),
@@ -86,6 +88,12 @@ const source = z.object({
     stopFlag: z.string().optional(),
     stage: z.string().optional(),
     nextTouchDate: z.string().optional(),
+    /** Free-text sales stage kept in the sheet (e.g. "Lead Stage"); seeds the pipeline stage. */
+    pipelineStage: z.string().optional(),
+    /** A booked meeting's time, written by the booking workflow; non-empty means stage "meeting". */
+    meetingTime: z.string().optional(),
+    /** Short summary of the lead's reply written by the reply-handling workflow. */
+    replyNote: z.string().optional(),
   }),
   blankStatus: z.enum(SHEET_STATES),
   requireDraft: z.boolean().optional(),

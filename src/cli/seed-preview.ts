@@ -272,7 +272,37 @@ async function main() {
        ('default', 'false_999000111222333@lid_SAMPLE1', '999000111222333@lid', false, 'SAMPLE: We''re unavailable right now, but will respond as soon as possible.', now() - interval '1 day', 'n8n_webhook')`,
   );
   await q(`insert into wa_contacts (chat_id, phone, name, source) values ('999000111222333@lid', null, 'Sample Clinic (SAMPLE)', 'webhook')`);
+  // Phone numbers for email leads (Ofcom's 020 7946 0xxx range is reserved for fiction).
+  await q(
+    `update leads l set phone = '+44 20 7946 0' || lpad((l.id % 1000)::text, 3, '0'), phone_norm = '4420794600' || lpad((l.id % 100)::text, 2, '0')
+       from campaigns c where c.id = l.campaign_id and c.channel = 'email' and l.phone is null and l.id % 3 <> 0`,
+  );
   await deriveLeads();
+  // Pipeline sample: a few worked leads with stages, reminders, calls and notes.
+  const replied = await q<{ id: number }>(`select id from leads where last_reply_at is not null and not suppressed order by last_reply_at desc`);
+  const pipeline: [string, string | null, string | null][] = [
+    ['interested', `now() - interval '2 hours'`, 'SAMPLE: Wants pricing for 3 locations; send proposal after the call.'],
+    ['meeting', `now() + interval '1 day'`, 'SAMPLE: Demo booked, owner will join.'],
+    ['contacted', `now() + interval '3 hours'`, null],
+    ['proposal', null, 'SAMPLE: Proposal sent, waiting on partner sign-off.'],
+    ['won', null, 'SAMPLE: Signed the 3-month plan.'],
+    ['contacted', `now() - interval '1 day'`, null],
+    ['lost', null, 'SAMPLE: Went with an in-house hire.'],
+  ];
+  for (const [i, [stage, reminder, note]] of pipeline.entries()) {
+    const id = replied[i * 2]?.id;
+    if (!id) break;
+    await q(
+      `update leads set stage = $2, stage_source = 'manual', stage_changed_at = now() - interval '1 day', last_activity_at = now() - interval '5 hours',
+              manual_followup_at = ${reminder ?? 'null'}, starred = $3, deal_value = case when $2 in ('won', 'proposal') then 45000 end,
+              deal_currency = case when $2 in ('won', 'proposal') then 'INR' end, last_call_at = now() - interval '1 day', last_call_outcome = 'connected', call_count = 1
+        where id = $1`,
+      [id, stage, i < 2],
+    );
+    await q(`insert into lead_activities (lead_id, kind, outcome, created_by, occurred_at) values ($1, 'call', 'connected', 'preview', now() - interval '1 day')`, [id]);
+    await q(`insert into lead_activities (lead_id, kind, outcome, created_by, occurred_at) values ($1, 'stage', $2, 'preview', now() - interval '1 day')`, [id, stage]);
+    if (note) await q(`insert into lead_activities (lead_id, kind, body, created_by, occurred_at) values ($1, 'note', $2, 'preview', now() - interval '20 hours')`, [id, note]);
+  }
   await evaluateAlerts();
   console.log('Preview database seeded with SAMPLE data.');
   await pool().end();
