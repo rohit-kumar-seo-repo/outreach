@@ -21,11 +21,11 @@ It is also where the leads that respond get worked, phone first: a sales pipelin
 | Performance | Today's KPIs, a delivery funnel (scheduled → attempted → accepted → bounced / confirmed / unverified), a 30-day chart with filters, and sync health |
 | Alerts | Failed n8n runs, sync failures, overdue follow-ups, bounce spikes and daily-limit breaches. Optional email through n8n. |
 | Campaigns | Per-campaign sends, follow-ups by step, replies, bounces, failures, and business results (qualified, meetings, won). Every rate shows its denominator. |
-| Inbox | Three-pane triage across every mailbox: Needs reply first, domain/mailbox selectors, filters, lead and campaign context, inline replies from the receiving mailbox, snooze, read/unread, bounces, unmatched and internal mail |
+| Inbox | Three-pane triage across every mailbox. **Needs you** shows only replies that need you (interested, questions, call requests, later); "no", greetings, "thanks" and auto-replies are sorted into **Screened out** automatically. Lead stage, call / WhatsApp buttons, inline replies from the receiving mailbox, snooze, Done, bounces, unmatched and internal mail |
 | Sending volume | Daily sends per mailbox and per domain, with limits you set |
 | Data coverage | Which days' numbers are complete, approximate or unknown, per campaign |
 | Spreadsheets | Real columns and statuses for each sheet, plus how "contacted" and "remaining" are calculated |
-| WhatsApp | A control center, not just a viewer: Overview (what needs attention today), Campaigns (reconciled lead funnel, pause/resume that actually gates sending, daily caps, send windows), Inbox (needs-reply triage, safe manual replies, classification), Templates (reusable messages with real-data preview), Accounts (session health, QR connect), Reports (volume, delivery status, response time, outcomes) — see [docs/WHATSAPP.md](docs/WHATSAPP.md) |
+| WhatsApp | A control center, not just a viewer: Overview (chats that need you, account and campaign issues), Inbox (WhatsApp-style chat, Needs you / Screened out like email), Campaigns (reconciled lead funnel, pause/resume that actually gates sending, daily caps, send windows), safe manual replies and classification, Templates (reusable messages with real-data preview), Accounts (session health, QR connect), Reports (volume, delivery status, response time, outcomes) — see [docs/WHATSAPP.md](docs/WHATSAPP.md) |
 | Integrations, Reports, Settings | Sync status and errors, CSV exports, sessions |
 
 ## Docs

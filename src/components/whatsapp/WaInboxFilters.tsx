@@ -10,7 +10,7 @@ export function WaInboxFilters({ accounts, campaigns }: { accounts: string[]; ca
   const sp = useSearchParams();
   const [pending, start] = useTransition();
   const active = ['account', 'campaign', 'from', 'to'].filter((k) => sp.get(k)).length;
-  // On a phone the extra filters fold away behind one button; they are always shown on wider screens.
+  // The extra filters fold away behind one button so the chat list keeps its room.
   const [open, setOpen] = useState(active > 0);
 
   function go(patch: Record<string, string>) {
@@ -19,8 +19,7 @@ export function WaInboxFilters({ accounts, campaigns }: { accounts: string[]; ca
       if (v) u.set(k, v);
       else u.delete(k);
     }
-    u.delete('openChat');
-    u.delete('openSession');
+    for (const k of ['openChat', 'openSession', 'chat', 'session']) u.delete(k);
     start(() => router.push(`${pathname}?${u.toString()}`));
   }
 
@@ -29,16 +28,16 @@ export function WaInboxFilters({ accounts, campaigns }: { accounts: string[]; ca
       <input
         type="search"
         placeholder="Search name, number, message…"
-        className="field min-w-0 flex-1 py-1 text-[12.5px] sm:order-last"
+        className="field min-w-0 flex-1 py-1 text-[12.5px]"
         defaultValue={sp.get('q') ?? ''}
         onKeyDown={(e) => {
           if (e.key === 'Enter') go({ q: (e.target as HTMLInputElement).value });
         }}
       />
-      <button type="button" className="btn sm:hidden" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <SlidersHorizontal size={15} aria-hidden /> Filters{active ? ` (${active})` : ''}
       </button>
-      <div className={`${open ? 'flex' : 'hidden'} w-full flex-wrap items-center gap-2 sm:flex sm:w-auto`}>
+      <div className={`${open ? 'flex' : 'hidden'} w-full flex-wrap items-center gap-2`}>
         <select className="field py-1 text-[12.5px]" value={sp.get('account') ?? ''} onChange={(e) => go({ account: e.target.value })} aria-label="Account">
           <option value="">All accounts</option>
           {accounts.map((a) => (

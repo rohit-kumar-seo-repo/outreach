@@ -2,6 +2,8 @@
 import { q } from '../db';
 import { registry } from '../registry';
 import { finishRun, startRun } from './runs';
+import { emailIntentSql, waIntentSql } from '../crm/intent';
+import { classifyReplies } from './intent-sync';
 import { reconcileWhatsApp } from './wa-store';
 
 export const LEAD_STATUSES = [
@@ -31,6 +33,8 @@ export async function deriveLeads(): Promise<void> {
   try {
     // 0. WhatsApp chats: real numbers for privacy-ID chats, lead links, automatic greetings.
     await reconcileWhatsApp();
+    // 0b. What each new reply means (interested, question, no, greeting, …).
+    await classifyReplies();
 
     // 1. Duplicates inside a campaign: same email (email campaigns) or same WhatsApp chat.
     //    The row that was actually contacted (or the earliest row) stays primary.
@@ -127,6 +131,19 @@ export async function deriveLeads(): Promise<void> {
        update leads l set last_response_at = x.at
          from (select l2.id, resp.at from leads l2 left join resp on resp.lead_id = l2.id) x
         where l.id = x.id and l.last_response_at is distinct from x.at`,
+    );
+
+    // 3a2. The lead's reply intent: its latest substantive reply wins over a later "hi" / "thanks".
+    await q(
+      `with r as (
+         select m.lead_id, m.sent_at as at, ${emailIntentSql('m')} as it from mail_messages m where m.is_outreach_reply and m.lead_id is not null
+         union all
+         select w.lead_id, w.sent_at, ${waIntentSql('w')} from wa_messages w where not w.from_me and w.lead_id is not null),
+       pick as (
+         select distinct on (lead_id) lead_id, it from r order by lead_id, (it not in ('greeting', 'ack', 'auto')) desc, at desc nulls last)
+       update leads l set reply_intent = x.it
+         from (select l2.id, pick.it from leads l2 left join pick on pick.lead_id = l2.id) x
+        where l.id = x.id and l.reply_intent is distinct from x.it`,
     );
 
     // 3b. Latest recorded business outcome (qualified / meeting booked / won / lost).

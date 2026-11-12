@@ -9,8 +9,14 @@ import { sendWaReplyAction, type WaReplyState } from '@/app/actions/whatsapp';
 function SendButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="btn btn-primary min-w-28 justify-center" disabled={disabled || pending} aria-disabled={disabled || pending}>
-      <Send size={14} aria-hidden /> {pending ? 'Sending…' : 'Send'}
+    <button
+      type="submit"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#128c7e] text-white shadow-sm transition-transform hover:bg-[#0f7a6e] active:scale-95 disabled:opacity-50"
+      disabled={disabled || pending}
+      aria-disabled={disabled || pending}
+      aria-label={pending ? 'Sending' : 'Send'}
+    >
+      <Send size={18} aria-hidden />
     </button>
   );
 }
@@ -29,36 +35,36 @@ export function WaReplyComposer({ session, chatId, initialKey, canSend, reason }
 
   if (!canSend) {
     return (
-      <section className="card border-dashed px-4 py-3 text-[13px] text-ink-2" aria-label="Reply">
+      <section className="rounded-2xl border border-dashed border-line-strong bg-white/70 px-4 py-3 text-[13px] text-ink-2" aria-label="Reply">
         <b className="text-ink">Replying is not available.</b> {reason ?? 'This WhatsApp account is not connected.'}
       </section>
     );
   }
 
   return (
-    <section className="card overflow-hidden" aria-label="Reply">
-      <form action={action} className="space-y-2 px-4 py-3 text-[13px]">
+    <section aria-label="Reply">
+      <form action={action} className="space-y-2 text-[13px]">
         <input type="hidden" name="key" value={state.nextKey} />
         <input type="hidden" name="session" value={session} />
         <input type="hidden" name="chatId" value={chatId} />
         <label htmlFor="wa-reply-body" className="sr-only">
           Your reply
         </label>
-        <textarea
-          id="wa-reply-body"
-          name="body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          required
-          maxLength={4096}
-          placeholder="Write your reply…"
-          className="field w-full resize-y py-2 leading-relaxed"
-        />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11.5px] text-ink-3">Sent from {session} through WAHA. One message, no media, no automatic follow-up.</p>
+        <div className="flex items-end gap-2">
+          <textarea
+            id="wa-reply-body"
+            name="body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={1}
+            required
+            maxLength={4096}
+            placeholder="Type a message"
+            className="field max-h-40 min-h-11 w-full flex-1 resize-y rounded-3xl border-0 bg-white px-4 py-2.5 leading-relaxed shadow-sm"
+          />
           <SendButton disabled={false} />
         </div>
+        <p className="px-2 text-[11px] text-ink-3">Sends from {session} through WAHA: one text message, no automatic follow-up.</p>
         {state.status && (
           <div
             role={state.status === 'sent' ? 'status' : 'alert'}

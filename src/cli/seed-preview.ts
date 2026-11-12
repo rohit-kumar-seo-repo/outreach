@@ -121,7 +121,7 @@ async function main() {
           channel: camp.channel,
           campaignSlug: slug,
           leadId: lead.id,
-          sender: camp.channel === 'email' ? sender : camp.waSession,
+          sender: camp.channel === 'email' ? sender : camp.waSession ?? 'default',
           recipient: email ?? chat!,
           step: s,
           result: failed ? 'failed' : 'accepted',
@@ -157,10 +157,17 @@ async function main() {
             rAt,
             lead.id,
             cid,
-            pick(['positive', 'positive', 'neutral', 'not_interested', null]),
+            pick(['positive', null, null, null, null]),
             rnd() < 0.3,
             `s:${email}|quick question for sample business ${i}`,
-            'This is SAMPLE preview text. Thanks for reaching out — can you send more details?',
+            pick([
+              'This is SAMPLE preview text. Thanks for reaching out — can you send more details?',
+              'SAMPLE: What would this cost for two locations?',
+              'SAMPLE: Please call me tomorrow afternoon.',
+              'Not interested, thanks.',
+              'Thanks',
+              'Hi',
+            ]),
           ],
         );
       }
@@ -181,7 +188,15 @@ async function main() {
       if (camp.channel === 'whatsapp' && rnd() < (replyRate[slug] ?? 0.08)) {
         await q(
           `insert into wa_messages (session, message_id, chat_id, from_me, body, ack, sent_at, lead_id, campaign_id, source) values ($1,$2,$3,false,$4,null,$5,$6,$7,'waha_api')`,
-          [camp.waSession, `preview-wa-${lead.id}`, chat, 'SAMPLE reply: please share the price list.', new Date(first + 5 * 3600_000), lead.id, cid],
+          [
+            camp.waSession ?? 'default',
+            `preview-wa-${lead.id}`,
+            chat,
+            pick(['SAMPLE reply: please share the price list.', 'No', 'Hi', 'Call me after 5 pm', 'Not interested', 'Thanks', 'How much does it cost?']),
+            new Date(first + 5 * 3600_000),
+            lead.id,
+            cid,
+          ],
         );
       }
     }

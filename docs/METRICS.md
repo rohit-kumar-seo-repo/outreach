@@ -169,7 +169,8 @@ The inbox groups mail into conversations (by In-Reply-To/References, else by add
 
 | View | Shows | Count in the menu |
 |---|---|---|
-| Needs reply (default) | The latest human message came from them; it is an outreach conversation (matched to a lead, a reply to mail you sent, or a likely match); you have not answered it since (inbox or webmail); not marked "No reply needed", not snoozed, not marked "Not outreach"; not spam | All such conversations |
+| Needs you (default) | Waiting for you — the latest human message came from them; it is an outreach conversation (matched to a lead, a reply to mail you sent, or a likely match); you have not answered it since (inbox or webmail); not marked Done, not snoozed, not marked "Not outreach"; not spam — **and** at least one of their unanswered messages needs you (see Reply types) | All such conversations |
+| Screened out | Waiting the same way, but every unanswered message is a "no", unsubscribe, bare greeting, "thanks"/"ok noted" or automatic reply | All such conversations |
 | Inbox | Conversations with mail received outside Spam/Trash, not snoozed | Unread |
 | Sent | Conversations with mail you sent | — |
 | Snoozed | Hidden until the chosen time, or until they write again | All |
@@ -178,10 +179,29 @@ The inbox groups mail into conversations (by In-Reply-To/References, else by add
 | Unmatched | Human mail not linked to a lead | Last 30 days |
 | Internal / automation | Reports, alerts and tests (see below) | Unread |
 
-- **New reply** = needs reply, from a lead, unread. **Unmatched** = human mail with no lead; link it or mark it "Not outreach".
+- **Unmatched** = human mail with no lead; link it or mark it "Not outreach".
 - **Unread** is kept by the dashboard: opening a conversation marks it read here, and "Mark unread" undoes that. It starts from the mailbox's own flag, which the dashboard never changes.
 - **Internal / automation** mail is labelled automatically: anything exchanged with your own mailboxes or domains, with `ADMIN_EMAIL`, or with whoever receives your automated reports; subjects like "Daily Outreach Summary", "[Outreach alert]", "Test". It never counts as a reply, and sends to those addresses never count as outreach sends.
-- **Replying** sends from the mailbox that received the conversation by default. After a reply, the conversation leaves Needs reply and the lead's status becomes "You replied". Follow-up dates stop as soon as a lead replies; the dashboard never schedules or sends follow-ups (your n8n sequences decide that from their sheets).
+- **Replying** sends from the mailbox that received the conversation by default. After a reply, the conversation leaves Needs you and the lead's status becomes "You replied". Follow-up dates stop as soon as a lead replies; the dashboard never schedules or sends follow-ups (your n8n sequences decide that from their sheets).
+
+## Reply types
+
+Every reply (email and WhatsApp) is sorted automatically by its own words, ignoring the quoted pitch below it (rules in `src/lib/crm/intent.ts`, English and common Hinglish):
+
+| Type | Examples | Needs you? |
+|---|---|---|
+| Interested | "Yes", "Ok", "Sure", "haan ji", "Interested in the trial" | Yes |
+| Asked a question | Anything with "?", price / cost / charges / "kitna" / details / "who is this" | Yes |
+| Wants a call | "Call me", "U can call now", a phone number in the message | Yes |
+| Later | "After Diwali contact me", "busy now, will get back", "next week" | Yes |
+| Replied | Anything else with substance, and voice notes / images with no text | Yes |
+| Not interested | "No", "Nahi", "Not interested", "already have a team", "wrong number" | No |
+| Unsubscribe | "Stop", "remove me", "unsubscribe", "don't message" | No |
+| Just a greeting | "Hi", "Hello sir", "Good morning" (and nothing else) | No |
+| Thanks / OK | "Thanks", "Thank you sir", "Ok thanks", 👍 | No |
+| Auto-reply | Out-of-office, "Thank you for contacting X, how can we help?" | No |
+
+Your own classification (inbox "Change", WhatsApp "Change…") always overrides the automatic one. A lead's reply type is its latest substantive reply, so a "thanks" after "send me the price" does not hide the question. Leads whose reply needs you enter the pipeline as **New**; "no" / unsubscribe become **Lost**; greetings, "thanks" and auto-replies stay out of the pipeline until they say something more.
 
 ## WhatsApp numbers and replies
 

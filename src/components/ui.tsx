@@ -129,7 +129,7 @@ export function EmptyState({ title, children, icon }: { title: string; children?
 
 export function Notice({ tone = 'info', title, children }: { tone?: 'info' | 'warn' | 'critical' | 'good'; title?: string; children: ReactNode }) {
   const cls = {
-    info: 'border-blue-200 bg-brand-50 text-ink',
+    info: 'border-indigo-200 bg-brand-50 text-ink',
     warn: 'border-amber-200 bg-warn-50 text-ink',
     critical: 'border-red-200 bg-critical-50 text-ink',
     good: 'border-emerald-200 bg-good-50 text-ink',

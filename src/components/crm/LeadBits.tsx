@@ -1,5 +1,6 @@
 // Small presentational pieces for leads. No server imports: usable from server and client components.
 import { AlarmClock, Mail, MessageCircle, Phone, Star } from 'lucide-react';
+import { INTENT_META, isIntent } from '@/lib/crm/intent';
 import { STAGE_META, type Stage } from '@/lib/crm/stages';
 import { initials } from '@/lib/crm/contact';
 import type { ContactLinks } from '@/lib/crm/contact';
@@ -33,7 +34,7 @@ export function ReminderBadge({ label, tone }: { label: string | null; tone: 'ov
   const cls = {
     overdue: 'bg-critical-50 text-critical ring-red-200',
     today: 'bg-amber-50 text-amber-800 ring-amber-200',
-    soon: 'bg-brand-50 text-brand ring-blue-200',
+    soon: 'bg-brand-50 text-brand ring-indigo-200',
     later: 'bg-slate-50 text-ink-2 ring-slate-200',
   }[tone];
   return (
@@ -101,4 +102,26 @@ export function ChannelDot({ channel }: { channel: 'email' | 'whatsapp' | null }
   if (channel === 'whatsapp') return <MessageCircle size={13} className="mt-0.5 shrink-0 text-green-600" aria-label="WhatsApp" />;
   if (channel === 'email') return <Mail size={13} className="mt-0.5 shrink-0 text-brand" aria-label="Email" />;
   return null;
+}
+
+/** What a reply means (Interested, Asked a question, Wants a call, Not interested, …). */
+export function IntentBadge({ intent, className = '' }: { intent: string | null | undefined; className?: string }) {
+  if (!isIntent(intent)) return null;
+  const m = INTENT_META[intent];
+  return (
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 ring-inset ${m.chip} ${className}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} aria-hidden />
+      {m.label}
+    </span>
+  );
+}
+
+/** Round initials avatar tinted by what their reply means. */
+export function IntentAvatar({ name, intent, size = 40 }: { name: string | null; intent: string | null | undefined; size?: number }) {
+  const tone = isIntent(intent) ? INTENT_META[intent].avatar : 'bg-slate-100 text-slate-600';
+  return (
+    <span aria-hidden style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }} className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${tone}`}>
+      {initials(name)}
+    </span>
+  );
 }

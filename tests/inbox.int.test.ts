@@ -102,14 +102,14 @@ d('inbox, replies and WhatsApp numbers', () => {
 
     expect((await q<{ kind: string }>(`select kind from mail_messages where uid in (12, 13) order by uid`)).map((r) => r.kind)).toEqual(['internal', 'internal']);
     const counts = await inboxCounts({});
-    expect(counts.needsReply).toBe(1);
+    expect(counts.needsYou).toBe(1);
     expect(counts.internalUnread).toBe(1);
-    const needs = await listThreads({ view: 'needs_reply' });
+    const needs = await listThreads({ view: 'needs_you' });
     expect(needs.rows).toHaveLength(1);
     expect(needs.rows[0]).toMatchObject({ leadId: lead, campaignName: expect.any(String), awaiting: true, unread: 1, fromName: 'Sarah Chen' });
     const thread = needs.rows[0].threadKey;
-    expect((await listThreads({ view: 'needs_reply', domain: 'rkdigitalmedia.in' })).rows).toHaveLength(0);
-    expect((await listThreads({ view: 'needs_reply', search: 'brightpath' })).rows).toHaveLength(1);
+    expect((await listThreads({ view: 'needs_you', domain: 'rkdigitalmedia.in' })).rows).toHaveLength(0);
+    expect((await listThreads({ view: 'needs_you', search: 'brightpath' })).rows).toHaveLength(1);
 
     // Sender rules: the receiving mailbox is the default; a mailbox without a copy cannot send.
     const ctx = await replyContext(thread);
@@ -134,7 +134,7 @@ d('inbox, replies and WhatsApp numbers', () => {
     expect(sent).toHaveLength(1);
 
     await deriveLeads();
-    expect((await inboxCounts({})).needsReply).toBe(0);
+    expect((await inboxCounts({})).needsYou).toBe(0);
     expect(await one(`select status, last_response_at is not null as responded, next_followup_at from leads where id = $1`, [lead])).toEqual({
       status: 'in_conversation',
       responded: true,
@@ -181,10 +181,26 @@ d('inbox, replies and WhatsApp numbers', () => {
       unseen: true,
     });
     await runMatching();
-    expect((await inboxCounts({})).needsReply).toBe(1);
+    expect((await inboxCounts({})).needsYou).toBe(1);
     await q(`insert into inbox_threads (thread_key, snoozed_until, snoozed_at) values ($1, now() + interval '1 day', now() + interval '2 minutes')`, [thread]);
-    expect(await inboxCounts({})).toMatchObject({ needsReply: 0, snoozed: 1 });
+    expect(await inboxCounts({})).toMatchObject({ needsYou: 0, snoozed: 1 });
     expect((await listThreads({ view: 'snoozed' })).rows[0]?.threadKey).toBe(thread);
+
+    // A "no" is screened out: it waits, but not for you.
+    const other = (await one<{ id: number }>(
+      `insert into leads (campaign_id, source_row_key, email, email_norm, email_valid) values ((select campaign_id from leads where id = $1), 'no1', 'no@nope.example', 'no@nope.example', true) returning id`,
+      [lead],
+    ))!.id;
+    await q(
+      `insert into mail_messages (mailbox_id, folder, uid, message_id, thread_key, direction, from_addr, to_addrs, counterpart, subject, sent_at, kind, lead_id, is_outreach_reply, body_text)
+       values ($1, 'INBOX', 21, '<no1@nope.example>', 's:no@nope.example|re: hi', 'inbound', 'no@nope.example', '{seo@rohitkumarseo.tech}', 'no@nope.example', 'Re: hi', now(), 'message', $2, true,
+               E'No thanks, not interested.\n\nOn Mon, Rohit wrote:\n> Interested?')`,
+      [seo, other],
+    );
+    await deriveLeads();
+    expect(await inboxCounts({})).toMatchObject({ needsYou: 0, screened: 1 });
+    expect((await listThreads({ view: 'screened' })).rows[0]).toMatchObject({ leadId: other, openIntent: 'not_interested', needsYou: false });
+    expect(await one(`select reply_intent from leads where id = $1`, [other])).toEqual({ reply_intent: 'not_interested' });
   });
 
   it('keeps retired mailboxes out of every mailbox list, even when an old send names them', async () => {
@@ -277,8 +293,13 @@ d('inbox, replies and WhatsApp numbers', () => {
       { chat_id: '919871530594@c.us', lead_id: lead, is_auto: false },
     ]);
     expect((await one<{ n: number }>(`select count(*)::int as n from v_replies where channel = 'whatsapp'`))!.n).toBe(1);
-    const { waConversations } = await import('@/lib/metrics/whatsapp');
-    const [conv] = await waConversations();
+    const { deriveLeads } = await import('@/lib/sync/derive');
+    await deriveLeads();
+    const { listWaThreads } = await import('@/lib/whatsapp/inbox');
+    const [conv] = await listWaThreads({ view: 'all' });
     expect(conv).toMatchObject({ phone: '919871530594', hiddenNumber: false, leadName: 'Dental Smiles', inbound: 1, autoReplies: 1 });
+    // "Yes, please share the website proposal" needs you; the automatic greeting does not count.
+    expect(conv).toMatchObject({ needsYou: true, openIntent: 'interested' });
+    expect((await listWaThreads({ view: 'needs_you' })).map((t) => t.chatId)).toEqual(['919871530594@c.us']);
   });
 });

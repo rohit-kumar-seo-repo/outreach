@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, MessageCircle, PartyPopper, SkipForward, StickyNote, X } from 'lucide-react';
 import { CallButton, CallLogger } from '@/components/crm/CallMode';
-import { Avatar, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
+import { Avatar, IntentBadge, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
 import { one } from '@/lib/db';
 import { present } from '@/lib/crm/present';
 import { callQueueIds, cardsByIds } from '@/lib/crm/queries';
@@ -71,6 +71,7 @@ export default async function CallModePage({ searchParams }: { searchParams: Pro
                   <p className="mt-0.5 text-[13.5px] text-ink-3">{[lead.category, lead.city].filter(Boolean).join(' · ') || lead.campaignName}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <StageBadge stage={lead.stage} />
+                    {lead.replyIntent !== 'other' && <IntentBadge intent={lead.replyIntent} />}
                     <ReminderBadge label={lead.reminderLabel} tone={lead.reminderTone} />
                   </div>
                 </div>

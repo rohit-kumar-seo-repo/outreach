@@ -1,28 +1,31 @@
 import Link from 'next/link';
 import { AlertTriangle, MessageSquareWarning, PauseCircle, Users, WifiOff } from 'lucide-react';
 import { AnimatedNumber, Stagger } from '@/components/motion';
-import { Card, EmptyState, fmt, KpiCard, Notice, PageHeader, Pill } from '@/components/ui';
+import { Card, EmptyState, fmt, KpiCard, Notice, Pill } from '@/components/ui';
 import { env } from '@/lib/env';
 import { one } from '@/lib/db';
 import { campaignStats } from '@/lib/metrics/campaigns';
 import { listTemplates } from '@/lib/whatsapp/templates';
-import { waAttention, waConversations, type WaConversation } from '@/lib/metrics/whatsapp';
+import { waAttention } from '@/lib/metrics/whatsapp';
+import { listWaThreads, type WaThreadRow } from '@/lib/whatsapp/inbox';
+import { IntentAvatar, IntentBadge, StageBadge } from '@/components/crm/LeadBits';
+import { isStage } from '@/lib/crm/stages';
 import { formatPhone } from '@/lib/normalize';
 import { addDays, localDate, relativeTime } from '@/lib/time';
 
 export const metadata = { title: 'WhatsApp' };
 
-function chatTitle(c: WaConversation): string {
+function chatTitle(c: Pick<WaThreadRow, 'leadName' | 'contactName' | 'phone'>): string {
   return c.leadName || c.contactName || formatPhone(c.phone) || 'Unknown business (number hidden)';
 }
 
 export default async function WhatsAppOverviewPage() {
   const today = localDate();
   const yesterday = addDays(today, -1);
-  const [attention, stats, conversations, templates, src, deltas] = await Promise.all([
+  const [attention, stats, needsYou, templates, src, deltas] = await Promise.all([
     waAttention(),
     campaignStats().then((r) => r.filter((c) => c.channel === 'whatsapp')),
-    waConversations(30),
+    listWaThreads({ view: 'needs_you' }, 8),
     listTemplates(),
     one<{ last_status: string | null; last_error: string | null; last_success_at: Date | null }>(`select last_status, last_error, last_success_at from sources where key = 'waha'`),
     one<{ acceptedToday: number; acceptedYesterday: number; repliesToday: number; repliesYesterday: number }>(
@@ -35,15 +38,13 @@ export default async function WhatsAppOverviewPage() {
     ),
   ]);
   const wahaOk = src?.last_status === 'ok';
-  const anyData = stats.some((s) => s.contacted > 0 || s.leadsLoaded > 0) || conversations.length > 0;
-  const recentReplies = conversations.filter((c) => c.inbound > 0 && !c.lastFromMe).slice(0, 6);
+  const anyData = stats.some((s) => s.contacted > 0 || s.leadsLoaded > 0) || needsYou.length > 0;
   const delta = (a: number, b: number) => (b === 0 ? null : Math.round(((a - b) / b) * 100));
   const acceptedDelta = deltas ? delta(deltas.acceptedToday, deltas.acceptedYesterday) : null;
   const repliesDelta = deltas ? delta(deltas.repliesToday, deltas.repliesYesterday) : null;
 
   return (
     <>
-      <PageHeader title="Overview" subtitle="What needs your attention today, across every WhatsApp account and campaign." />
       {!wahaOk && (
         <div className="mb-4">
           <Notice tone="warn" title="WAHA chat history is not connected">
@@ -76,23 +77,65 @@ export default async function WhatsAppOverviewPage() {
           />,
           <KpiCard
             key="attention"
-            label="Needs your attention"
-            value={<AnimatedNumber value={attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length} />}
-            sub={`${attention.needsReply} repl${attention.needsReply === 1 ? 'y' : 'ies'} · ${attention.campaigns.length} campaign issue(s) · ${attention.disconnectedSessions.length} account issue(s)`}
+            label="Chats that need you"
+            value={<AnimatedNumber value={attention.needsReply} />}
+            sub={`Interested, questions and call requests · ${attention.campaigns.length} campaign issue(s) · ${attention.disconnectedSessions.length} account issue(s)`}
             tone={attention.needsReply + attention.campaigns.length + attention.disconnectedSessions.length > 0 ? 'warn' : 'good'}
             href="/whatsapp/inbox"
           />,
         ]}
       </Stagger>
 
+      <div className="mt-4">
+        <Card
+          title="Needs you"
+          subtitle={'Replies worth your time. "No", greetings, "thanks" and auto-greetings are screened out.'}
+          actions={
+            <Link href="/whatsapp/inbox" className="link text-[13px]">
+              Open inbox →
+            </Link>
+          }
+          pad={false}
+        >
+          {needsYou.length === 0 ? (
+            <EmptyState title="No WhatsApp reply needs you right now" />
+          ) : (
+            <ul className="divide-y divide-line/70">
+              {needsYou.map((c) => (
+                <li key={`${c.session}:${c.chatId}`}>
+                  <Link
+                    href={`/whatsapp/inbox?openChat=${encodeURIComponent(c.chatId)}&openSession=${encodeURIComponent(c.session)}`}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
+                  >
+                    <IntentAvatar name={chatTitle(c)} intent={c.openIntent ?? c.lastIntent} size={40} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-[14px] font-semibold text-ink">{chatTitle(c)}</span>
+                        <span className="shrink-0 text-[11.5px] text-ink-3">{relativeTime(c.lastAt)}</span>
+                      </div>
+                      <p className="truncate text-[13px] text-ink-2">{c.lastBody ?? '(media)'}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <IntentBadge intent={c.openIntent ?? c.lastIntent} />
+                        {isStage(c.leadStage) && <StageBadge stage={c.leadStage} />}
+                        <span className="truncate text-[11px] text-ink-3">{c.campaignName ?? 'No lead match'}</span>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card title="Needs your attention" pad={false}>
+        <Card title="Also needs a look" pad={false}>
           <ul className="divide-y divide-line">
             {attention.needsReply > 0 && (
-              <AttentionRow icon={<Users size={16} />} href="/whatsapp/inbox?view=needs_reply" text={`${attention.needsReply} conversation(s) waiting for your reply`} />
+              <AttentionRow icon={<Users size={16} />} href="/whatsapp/inbox" text={`${attention.needsReply} chat(s) need you: interested, questions or call requests`} />
             )}
-            {attention.followupsOverdue > 0 && <AttentionRow icon={<AlertTriangle size={16} />} href="/leads?followup=overdue" text={`${attention.followupsOverdue} follow-up(s) overdue`} />}
-            {attention.followupsDueToday > 0 && <AttentionRow icon={<AlertTriangle size={16} />} href="/leads?followup=today" text={`${attention.followupsDueToday} follow-up(s) due today`} />}
+            {attention.followupsOverdue > 0 && <AttentionRow icon={<AlertTriangle size={16} />} href="/leads?followup=overdue" text={`${attention.followupsOverdue} sequence follow-up(s) overdue`} />}
+            {attention.followupsDueToday > 0 && <AttentionRow icon={<AlertTriangle size={16} />} href="/leads?followup=today" text={`${attention.followupsDueToday} sequence follow-up(s) due today`} />}
             {attention.failedSendsToday > 0 && <AttentionRow icon={<MessageSquareWarning size={16} />} href="/whatsapp/reports" text={`${attention.failedSendsToday} send(s) failed today`} />}
             {attention.disconnectedSessions.map((s) => (
               <AttentionRow key={s.name} icon={<WifiOff size={16} />} href="/whatsapp/accounts" text={`Account "${s.name}" is ${s.status ?? 'not connected'}`} />
@@ -204,30 +247,6 @@ export default async function WhatsAppOverviewPage() {
         </div>
       </div>
 
-      <div className="mt-4">
-        <Card title="Recent replies" subtitle="Auto-replies are excluded from this list and from human reply counts." actions={<Link href="/whatsapp/inbox" className="link text-[13px]">Open inbox →</Link>} pad={false}>
-          {recentReplies.length === 0 ? (
-            <EmptyState title="No human replies recorded yet" />
-          ) : (
-            <ul className="divide-y divide-line">
-              {recentReplies.map((c) => (
-                <li key={`${c.session}:${c.chatId}`}>
-                  <Link href={`/whatsapp/inbox?chat=${encodeURIComponent(c.chatId)}&session=${encodeURIComponent(c.session)}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium">{chatTitle(c)}</div>
-                      <div className="truncate text-[12px] text-ink-3">{c.lastBody ?? '(media)'}</div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2 text-[11px] text-ink-3">
-                      {c.campaignName ? <Pill tone="brand">{c.campaignName}</Pill> : <Pill tone="warn">No lead match</Pill>}
-                      {relativeTime(c.lastAt)}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
     </>
   );
 }

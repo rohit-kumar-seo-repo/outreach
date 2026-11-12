@@ -97,15 +97,17 @@ export const REMINDER_PICKS = {
 export type ReminderPick = keyof typeof REMINDER_PICKS;
 
 /**
- * SQL for a lead's pipeline stage. Explicit stage wins; otherwise a lead that replied is "new",
- * and a reply classified as not interested / unsubscribe is "lost". Leads that never replied and
- * were never staged are not in the pipeline (null). Expects the leads table aliased as `l`.
+ * SQL for a lead's pipeline stage. Explicit stage wins; otherwise a lead whose reply needs you
+ * (interested, a question, wants a call, later, or anything substantive) is "new", one that said
+ * no / unsubscribe is "lost", and one that only sent a greeting, "thanks" or an auto-reply stays out
+ * of the pipeline (null), as do leads that never replied. `reply_intent` already folds in any manual
+ * classification (see src/lib/crm/intent.ts). Expects the leads table aliased as `l`.
  */
 export const STAGE_SQL = `(case
   when l.stage is not null then l.stage
   when l.last_reply_at is null then null
-  when l.suppressed or l.reply_sentiment in ('not_interested', 'unsubscribe') then 'lost'
-  when l.reply_sentiment = 'auto_reply' then null
+  when l.suppressed or l.reply_intent in ('not_interested', 'unsubscribe') or l.reply_sentiment in ('not_interested', 'unsubscribe') then 'lost'
+  when l.reply_intent in ('greeting', 'ack', 'auto') or l.reply_sentiment = 'auto_reply' then null
   else 'new' end)`;
 
 /**

@@ -32,6 +32,7 @@ export interface LeadCard {
   dealCurrency: string | null;
   replyChannel: 'email' | 'whatsapp' | null;
   replyText: string | null;
+  replyIntent: string | null;
   links: ContactLinks;
 }
 
@@ -42,7 +43,7 @@ const CARD_COLS = `l.id, l.name, l.email_norm as email, l.phone, l.phone_norm as
   ${STAGE_SQL} as stage, l.starred, l.manual_followup_at as "reminderAt", l.last_reply_at as "lastReplyAt",
   l.last_contacted_at as "lastContactedAt", l.last_activity_at as "lastActivityAt", l.last_call_at as "lastCallAt",
   l.last_call_outcome as "lastCallOutcome", l.call_count as "callCount", l.deal_value::float8 as "dealValue", l.deal_currency as "dealCurrency",
-  r.ch as "replyChannel", r.body as "replyText"`;
+  r.ch as "replyChannel", r.body as "replyText", l.reply_intent as "replyIntent"`;
 
 // Their latest reply on either channel (email body is cleaned in TS; it may still hold quoted history).
 const REPLY_JOIN = `left join lateral (

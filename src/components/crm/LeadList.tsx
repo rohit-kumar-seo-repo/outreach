@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PhoneCall } from 'lucide-react';
 import type { LeadCardView } from '@/lib/crm/present';
-import { Avatar, ChannelDot, ContactButtons, ReminderBadge, StageBadge, StarMark } from './LeadBits';
+import { Avatar, ChannelDot, ContactButtons, IntentBadge, ReminderBadge, StageBadge, StarMark } from './LeadBits';
 
 function subline(l: LeadCardView): string {
   return [l.category, l.city, l.campaignName].filter(Boolean).join(' · ');
@@ -32,6 +32,7 @@ export function LeadListItem({ lead, showStage = true }: { lead: LeadCardView; s
           <div className="mt-2.5 flex items-center gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
               {showStage && <StageBadge stage={lead.stage} />}
+              {(lead.stage === 'new' || !lead.stage) && lead.replyIntent !== 'other' && <IntentBadge intent={lead.replyIntent} />}
               <ReminderBadge label={lead.reminderLabel} tone={lead.reminderTone} />
               {lead.lastCallLabel && (
                 <span className="inline-flex items-center gap-1 text-[11.5px] text-ink-3">

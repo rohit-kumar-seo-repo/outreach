@@ -65,7 +65,7 @@ function isActive(path: string, href: string) {
 function Brand() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand to-indigo-600 text-[13px] font-bold text-white shadow-sm">
+      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand to-violet-600 text-[13px] font-bold text-white shadow-sm">
         RK
       </span>
       <span className="leading-tight">

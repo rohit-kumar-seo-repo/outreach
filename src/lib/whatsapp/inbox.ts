@@ -1,10 +1,17 @@
 // WhatsApp inbox: conversation list with filters/counts, and one conversation's full history.
 // Mirrors the shape of src/lib/metrics/inbox.ts (the email inbox) but over wa_messages, which
 // is much simpler (no folders, no bounce parsing) — a chat is just (session, chat_id).
+//
+// "Needs you" = waiting for your reply (their latest human message is newer than yours and than
+// "no reply needed"), and at least one of their unanswered messages needs you (interested, a
+// question, wants a call, later, anything substantive; see src/lib/crm/intent.ts). Waiting chats
+// whose unanswered messages are only "no", a greeting, "thanks" or an auto-reply are "Screened out".
+import { NEEDS_YOU_SQL, waIntentSql } from '../crm/intent';
+import { STAGE_SQL } from '../crm/stages';
 import { q, one } from '../db';
 import { Params } from '../metrics/filters';
 
-export const WA_VIEWS = ['needs_reply', 'all', 'unread', 'auto_replies'] as const;
+export const WA_VIEWS = ['needs_you', 'screened', 'unread', 'all', 'auto_replies'] as const;
 export type WaView = (typeof WA_VIEWS)[number];
 
 export interface WaInboxFilters {
@@ -18,15 +25,22 @@ export interface WaInboxFilters {
 
 const BASE_CTE = `
   with c as (
-    select chat_id, session, max(sent_at) as last_at,
-           max(sent_at) filter (where not from_me and not is_auto) as last_in_at,
-           max(sent_at) filter (where from_me) as last_out_at,
-           count(*) filter (where not from_me and not is_auto)::int as inbound,
-           count(*) filter (where not from_me and is_auto)::int as auto_replies,
-           count(*) filter (where from_me)::int as outbound,
-           (array_agg(lead_id order by sent_at desc) filter (where lead_id is not null))[1] as lead_id,
-           (array_agg(campaign_id order by sent_at desc) filter (where campaign_id is not null))[1] as campaign_id
-      from wa_messages group by chat_id, session),
+    select w.chat_id, w.session, max(w.sent_at) as last_at,
+           max(w.sent_at) filter (where not w.from_me and not w.is_auto) as last_in_at,
+           max(w.sent_at) filter (where w.from_me) as last_out_at,
+           count(*) filter (where not w.from_me and not w.is_auto)::int as inbound,
+           count(*) filter (where not w.from_me and w.is_auto)::int as auto_replies,
+           count(*) filter (where w.from_me)::int as outbound,
+           (array_agg(${waIntentSql('w')} order by w.sent_at desc) filter (where not w.from_me))[1] as last_intent,
+           (array_agg(w.lead_id order by w.sent_at desc) filter (where w.lead_id is not null))[1] as lead_id,
+           (array_agg(w.campaign_id order by w.sent_at desc) filter (where w.campaign_id is not null))[1] as campaign_id
+      from wa_messages w group by w.chat_id, w.session),
+  oi as (
+    select w.session, w.chat_id,
+           (array_agg(${waIntentSql('w')} order by (${waIntentSql('w')} in ${NEEDS_YOU_SQL}) desc, w.sent_at desc))[1] as open_intent
+      from wa_messages w join c on c.session = w.session and c.chat_id = w.chat_id
+     where not w.from_me and not w.is_auto and w.sent_at > coalesce(c.last_out_at, '-infinity'::timestamptz)
+     group by w.session, w.chat_id),
   ct as (
     select w.chat_id, w.phone, w.name from wa_contacts w),
   t as (
@@ -35,18 +49,23 @@ const BASE_CTE = `
            x.body as last_body, x.from_me as last_from_me, x.is_auto as last_is_auto,
            coalesce(case when c.chat_id like '%@c.us' then replace(c.chat_id, '@c.us', '') end, ctc.phone) as phone,
            (c.chat_id like '%@lid' and ctc.phone is null) as hidden_number,
-           wt.handled_at, wt.needs_followup_at, wt.last_read_at,
+           wt.handled_at, wt.needs_followup_at, wt.last_read_at, c.last_intent, oi.open_intent,
            (c.last_in_at is not null and c.last_in_at > coalesce(c.last_out_at, '-infinity') and c.last_in_at > coalesce(wt.handled_at, '-infinity')) as needs_reply,
-           (c.last_in_at is not null and c.last_in_at > coalesce(wt.last_read_at, '-infinity')) as unread
+           (c.last_in_at is not null and c.last_in_at > coalesce(wt.last_read_at, '-infinity')) as unread,
+           l.stage as lead_stage
       from c
+      left join oi on oi.session = c.session and oi.chat_id = c.chat_id
       left join lateral (select body, from_me, is_auto from wa_messages w where w.chat_id = c.chat_id and w.session = c.session order by sent_at desc limit 1) x on true
       left join ct ctc on ctc.chat_id = c.chat_id
       left join leads l on l.id = c.lead_id
       left join campaigns cp on cp.id = c.campaign_id
       left join wa_threads wt on wt.session = c.session and wt.chat_id = c.chat_id)`;
 
+const NEEDS_YOU_T = `(t.needs_reply and coalesce(t.open_intent, 'other') in ${NEEDS_YOU_SQL})`;
+
 function viewSql(view: WaView): string {
-  if (view === 'needs_reply') return 'and t.needs_reply';
+  if (view === 'needs_you') return `and ${NEEDS_YOU_T}`;
+  if (view === 'screened') return `and t.needs_reply and not ${NEEDS_YOU_T}`;
   if (view === 'unread') return 'and t.unread';
   if (view === 'auto_replies') return 'and t.auto_replies > 0';
   return '';
@@ -80,6 +99,10 @@ export interface WaThreadRow {
   autoReplies: number;
   outbound: number;
   needsReply: boolean;
+  needsYou: boolean;
+  openIntent: string | null;
+  lastIntent: string | null;
+  leadStage: string | null;
   unread: boolean;
   handledAt: Date | null;
   needsFollowupAt: Date | null;
@@ -88,13 +111,14 @@ export interface WaThreadRow {
 const ROW_COLS = `t.chat_id as "chatId", t.session, t.last_at as "lastAt", t.phone, t.hidden_number as "hiddenNumber",
   t.lead_id as "leadId", t.lead_name as "leadName", t.contact_name as "contactName", t.campaign_slug as "campaignSlug", t.campaign_name as "campaignName",
   t.last_body as "lastBody", t.last_from_me as "lastFromMe", t.last_is_auto as "lastIsAuto",
-  t.inbound, t.auto_replies as "autoReplies", t.outbound, t.needs_reply as "needsReply", t.unread,
+  t.inbound, t.auto_replies as "autoReplies", t.outbound, t.needs_reply as "needsReply", ${NEEDS_YOU_T} as "needsYou",
+  t.open_intent as "openIntent", t.last_intent as "lastIntent", t.lead_stage as "leadStage", t.unread,
   t.handled_at as "handledAt", t.needs_followup_at as "needsFollowupAt"`;
 
 export async function listWaThreads(f: WaInboxFilters, limit = 60): Promise<WaThreadRow[]> {
   const p = new Params();
   const where = filterSql(f, p);
-  return q<WaThreadRow>(`${BASE_CTE} select ${ROW_COLS} from t where true ${where} order by t.needs_reply desc, t.last_at desc limit ${p.add(limit)}`, p.values);
+  return q<WaThreadRow>(`${BASE_CTE} select ${ROW_COLS} from t where true ${where} order by ${NEEDS_YOU_T} desc, t.last_at desc limit ${p.add(limit)}`, p.values);
 }
 
 export async function waInboxCounts(base: Omit<WaInboxFilters, 'view'>): Promise<Record<WaView, number>> {
@@ -110,8 +134,9 @@ export async function waInboxCounts(base: Omit<WaInboxFilters, 'view'>): Promise
   return out;
 }
 
+/** Conversations that need you (badge, WhatsApp overview). */
 export async function needsReplyCount(): Promise<number> {
-  const row = await one<{ n: number }>(`${BASE_CTE} select count(*)::int as n from t where t.needs_reply`);
+  const row = await one<{ n: number }>(`${BASE_CTE} select count(*)::int as n from t where ${NEEDS_YOU_T}`);
   return row?.n ?? 0;
 }
 
@@ -126,12 +151,13 @@ export interface WaMessageRow {
   isAuto: boolean;
   sentiment: string | null;
   autoOverride: boolean;
+  intent: string | null;
 }
 
 export async function waThreadMessages(session: string, chatId: string): Promise<WaMessageRow[]> {
   return q<WaMessageRow>(
     `select id, from_me as "fromMe", body, sent_at as "sentAt", ack, session, has_media as "hasMedia", is_auto as "isAuto",
-            sentiment, auto_override as "autoOverride"
+            sentiment, auto_override as "autoOverride", case when from_me then null else ${waIntentSql('wa_messages')} end as intent
        from wa_messages where session = $1 and chat_id = $2 order by sent_at`,
     [session, chatId],
   );
@@ -150,6 +176,9 @@ export interface WaThreadContext {
   city: string | null;
   category: string | null;
   leadStatus: string | null;
+  leadStage: string | null;
+  leadPhone: string | null;
+  leadEmail: string | null;
   handledAt: Date | null;
   needsFollowupAt: Date | null;
   sessionStatus: string | null;
@@ -161,7 +190,7 @@ export async function waThreadContext(session: string, chatId: string): Promise<
             coalesce(case when $1 like '%@c.us' then replace($1, '@c.us', '') end, ct.phone) as phone,
             ($1 like '%@lid' and ct.phone is null) as "hiddenNumber",
             l.id as "leadId", l.name as "leadName", ct.name as "contactName", cp.slug as "campaignSlug", cp.name as "campaignName",
-            l.city, l.category, l.status as "leadStatus",
+            l.city, l.category, l.status as "leadStatus", ${STAGE_SQL} as "leadStage", l.phone as "leadPhone", l.email_norm as "leadEmail",
             wt.handled_at as "handledAt", wt.needs_followup_at as "needsFollowupAt", ws.status as "sessionStatus"
        from (select 1) x
        left join wa_contacts ct on ct.chat_id = $1

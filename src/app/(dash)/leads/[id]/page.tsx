@@ -50,7 +50,7 @@ const ICON: Record<TimelineItem['kind'], { icon: typeof Phone; cls: string }> = 
   sent: { icon: Send, cls: 'bg-slate-50 text-ink-2 ring-slate-200' },
   send_failed: { icon: XCircle, cls: 'bg-critical-50 text-critical ring-red-200' },
   reply: { icon: Mail, cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
-  our_reply: { icon: Reply, cls: 'bg-brand-50 text-brand ring-blue-200' },
+  our_reply: { icon: Reply, cls: 'bg-brand-50 text-brand ring-indigo-200' },
   wa_in: { icon: MessageCircle, cls: 'bg-green-50 text-green-700 ring-green-200' },
   wa_out: { icon: MessageCircle, cls: 'bg-slate-50 text-ink-2 ring-slate-200' },
 };

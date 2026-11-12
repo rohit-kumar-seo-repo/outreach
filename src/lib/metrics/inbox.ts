@@ -1,15 +1,21 @@
 // Inbox: conversations (threads) across every synced mailbox, with triage views.
 //
-// "Needs reply" = the latest human message in the conversation came from them (not a bounce,
+// "Waiting" = the latest human message in the conversation came from them (not a bounce,
 // auto-reply or internal/automation mail, not spam), it is an outreach conversation (matched to
 // a lead, a reply to mail we sent, or a likely match), you have not answered it since (in webmail
 // or from the dashboard), you did not mark it "no reply needed", it is not snoozed, and you did not
 // mark the conversation as not outreach.
+// "Needs you" = waiting, and at least one of their unanswered messages needs you (interested, a
+// question, wants a call, later, or anything substantive; see src/lib/crm/intent.ts). Waiting
+// conversations whose unanswered messages are only "no", unsubscribe, a greeting, "thanks" or an
+// auto-reply are "Screened out".
+import { emailIntentSql, NEEDS_YOU_SQL } from '../crm/intent';
+import { STAGE_SQL } from '../crm/stages';
 import { one, q } from '../db';
 import { registry } from '../registry';
 import { Params } from './filters';
 
-export const INBOX_VIEWS = ['needs_reply', 'inbox', 'sent', 'snoozed', 'bounces', 'spam', 'unmatched', 'internal', 'all'] as const;
+export const INBOX_VIEWS = ['needs_you', 'screened', 'inbox', 'sent', 'snoozed', 'bounces', 'spam', 'unmatched', 'internal', 'all'] as const;
 export type InboxView = (typeof INBOX_VIEWS)[number];
 export const MESSAGE_TYPES = ['lead_reply', 'human', 'auto_reply', 'bounce', 'internal'] as const;
 export type MessageType = (typeof MESSAGE_TYPES)[number];
@@ -40,20 +46,28 @@ function scopePlaceholders(p: Params, scope: InboxScope): (alias: string) => str
   return (alias) => [...(mailbox ? [`${alias}.address = ${mailbox}`] : []), ...(domain ? [`${alias}.domain = ${domain}`] : [])];
 }
 
-/** Per-thread aggregates within the domain/mailbox scope, plus triage state. Defines CTEs m, t, v. */
+/** Per-thread aggregates within the domain/mailbox scope, plus triage state. Defines CTEs m, mo, t, w, v. */
 function threadsCte(scopeSql: (alias: string) => string[]): string {
   const where = ['m.thread_key is not null', ...scopeSql('mb')];
   return `
   m as (
     select m.thread_key, m.folder, m.direction, m.kind, m.sent_at, m.lead_id, m.campaign_id, m.suggested_lead_id, m.match_method,
            m.needs_followup, m.send_attempt_id, coalesce(m.message_id, m.id::text) as mkey,
+           case when m.direction = 'inbound' and m.kind in ('message', 'auto_reply') then ${emailIntentSql('m')} end as it,
            (m.folder ~* '(^|[./])(spam|junk)') as in_spam,
            (m.folder ~* '(^|[./])(trash|deleted)') as in_trash,
            (m.direction = 'inbound' and coalesce(not m.read_override, m.unseen)) as is_unread
       from mail_messages m join mailboxes mb on mb.id = m.mailbox_id
      where ${where.join(' and ')}),
+  mo as (
+    select thread_key, max(sent_at) filter (where direction = 'outbound' and send_attempt_id is null) as lmo from m group by thread_key),
   t as (
-    select thread_key,
+    select m.thread_key,
+           -- What their unanswered messages mean: one that needs you wins, else the latest.
+           (array_agg(m.it order by (m.it in ${NEEDS_YOU_SQL}) desc, m.sent_at desc nulls last)
+              filter (where m.direction = 'inbound' and m.kind = 'message' and not m.in_trash and not m.in_spam
+                        and m.sent_at > coalesce(mo.lmo, '-infinity'::timestamptz)))[1] as open_intent,
+           (array_agg(m.it order by m.sent_at desc nulls last) filter (where m.direction = 'inbound' and m.it is not null and not m.in_trash))[1] as last_intent,
            max(sent_at) filter (where not in_trash) as last_at,
            max(sent_at) filter (where direction = 'inbound' and not in_trash and not in_spam) as last_in,
            max(sent_at) filter (where direction = 'inbound' and kind = 'message' and not in_trash and not in_spam) as last_human_in,
@@ -74,8 +88,8 @@ function threadsCte(scopeSql: (alias: string) => string[]): string {
            (array_agg(lead_id order by sent_at desc nulls last) filter (where lead_id is not null))[1] as lead_id,
            (array_agg(campaign_id order by sent_at desc nulls last) filter (where campaign_id is not null))[1] as campaign_id,
            (array_agg(suggested_lead_id order by sent_at desc nulls last) filter (where suggested_lead_id is not null))[1] as suggested_lead_id
-      from m group by thread_key),
-  v as (
+      from m join mo on mo.thread_key = m.thread_key group by m.thread_key),
+  w as (
     select t.*, s.snoozed_until, s.snoozed_at, s.handled_at, r.at as dash_reply_at,
            coalesce(s.snoozed_until > now() and (s.snoozed_at is null or t.last_in is null or t.last_in <= s.snoozed_at), false) as snoozed,
            (t.last_human_in is not null and not t.not_outreach
@@ -86,11 +100,16 @@ function threadsCte(scopeSql: (alias: string) => string[]): string {
       from t
       left join inbox_threads s on s.thread_key = t.thread_key
       left join (select thread_key, max(coalesce(sent_at, created_at)) as at from mail_replies
-                  where status in ('sent', 'sending', 'unknown') group by thread_key) r on r.thread_key = t.thread_key)`;
+                  where status in ('sent', 'sending', 'unknown') group by thread_key) r on r.thread_key = t.thread_key),
+  v as (
+    select w.*, (w.awaiting and coalesce(w.open_intent, 'other') in ${NEEDS_YOU_SQL}) as needs_you,
+           (w.awaiting and coalesce(w.open_intent, 'other') not in ${NEEDS_YOU_SQL}) as screened
+      from w)`;
 }
 
 const VIEW_WHERE: Record<InboxView, string> = {
-  needs_reply: 'v.awaiting and not v.snoozed',
+  needs_you: 'v.needs_you and not v.snoozed',
+  screened: 'v.screened and not v.snoozed',
   inbox: 'v.in_inbox and not v.snoozed',
   sent: 'v.has_sent',
   snoozed: 'v.snoozed',
@@ -102,7 +121,8 @@ const VIEW_WHERE: Record<InboxView, string> = {
 };
 
 const VIEW_TIME: Record<InboxView, string> = {
-  needs_reply: 'v.last_human_in',
+  needs_you: 'v.last_human_in',
+  screened: 'v.last_human_in',
   inbox: 'v.last_in',
   sent: 'v.last_out',
   snoozed: 'v.last_at',
@@ -122,7 +142,8 @@ const TYPE_WHERE: Record<MessageType, string> = {
 };
 
 export interface InboxCounts {
-  needsReply: number;
+  needsYou: number;
+  screened: number;
   inboxUnread: number;
   snoozed: number;
   bounces30d: number;
@@ -135,7 +156,8 @@ export async function inboxCounts(scope: InboxScope): Promise<InboxCounts> {
   const p = new Params();
   const row = await one<InboxCounts>(
     `with ${threadsCte(scopePlaceholders(p, scope))}
-     select count(*) filter (where awaiting and not snoozed)::int as "needsReply",
+     select count(*) filter (where needs_you and not snoozed)::int as "needsYou",
+            count(*) filter (where screened and not snoozed)::int as screened,
             count(*) filter (where in_inbox and not snoozed and unread > 0)::int as "inboxUnread",
             count(*) filter (where snoozed)::int as snoozed,
             count(*) filter (where has_bounce and last_at > now() - interval '30 days')::int as "bounces30d",
@@ -145,12 +167,12 @@ export async function inboxCounts(scope: InboxScope): Promise<InboxCounts> {
        from v`,
     p.values,
   );
-  return row ?? { needsReply: 0, inboxUnread: 0, snoozed: 0, bounces30d: 0, spamUnread: 0, unmatched30d: 0, internalUnread: 0 };
+  return row ?? { needsYou: 0, screened: 0, inboxUnread: 0, snoozed: 0, bounces30d: 0, spamUnread: 0, unmatched30d: 0, internalUnread: 0 };
 }
 
-/** For the sidebar badge: conversations waiting for your reply, across all mailboxes. */
+/** For the sidebar badge: conversations that need you, across all mailboxes. */
 export async function needsReplyCount(): Promise<number> {
-  return (await inboxCounts({})).needsReply;
+  return (await inboxCounts({})).needsYou;
 }
 
 export interface ThreadRow {
@@ -160,6 +182,9 @@ export interface ThreadRow {
   unread: number;
   flagged: boolean;
   awaiting: boolean;
+  needsYou: boolean;
+  openIntent: string | null;
+  lastIntent: string | null;
   snoozed: boolean;
   snoozedUntil: Date | null;
   hasBounce: boolean;
@@ -193,7 +218,7 @@ export async function listThreads(opts: InboxQuery): Promise<{ rows: ThreadRow[]
   const where: string[] = [VIEW_WHERE[opts.view]];
   if (opts.campaign) where.push(`c.slug = ${p.add(opts.campaign)}`);
   if (opts.unread) where.push('v.unread > 0');
-  if (opts.needsReply) where.push('v.awaiting and not v.snoozed');
+  if (opts.needsReply) where.push('v.needs_you and not v.snoozed');
   if (opts.match === 'matched') where.push('v.lead_id is not null');
   if (opts.match === 'unmatched') where.push('v.unmatched');
   if (opts.type) where.push(TYPE_WHERE[opts.type]);
@@ -205,7 +230,7 @@ export async function listThreads(opts: InboxQuery): Promise<{ rows: ThreadRow[]
                  or lower(coalesce(l.name, '')) like ${s} or coalesce(l.email_norm, '') like ${s} or lower(coalesce(c.name, '')) like ${s})`);
   }
   const time = `coalesce(${VIEW_TIME[opts.view]}, v.last_at)`;
-  const preferIn = ['needs_reply', 'inbox', 'unmatched', 'spam'].includes(opts.view);
+  const preferIn = ['needs_you', 'screened', 'inbox', 'unmatched', 'spam'].includes(opts.view);
   const preferOut = opts.view === 'sent';
   const lateralScope = scopeSql('xb');
   const base = `from v left join leads l on l.id = v.lead_id left join campaigns c on c.id = v.campaign_id where ${where.map((w) => `(${w})`).join(' and ')}`;
@@ -213,7 +238,8 @@ export async function listThreads(opts: InboxQuery): Promise<{ rows: ThreadRow[]
   const page = Math.max(1, opts.page ?? 1);
   const rows = await q<ThreadRow>(
     `with ${cte}
-     select v.thread_key as "threadKey", ${time} as "lastAt", v.messages, v.unread, v.flagged, v.awaiting, v.snoozed, v.snoozed_until as "snoozedUntil",
+     select v.thread_key as "threadKey", ${time} as "lastAt", v.messages, v.unread, v.flagged, v.awaiting, v.needs_you as "needsYou",
+            v.open_intent as "openIntent", v.last_intent as "lastIntent", v.snoozed, v.snoozed_until as "snoozedUntil",
             v.has_bounce as "hasBounce", v.has_internal as "hasInternal", v.has_spam as "hasSpam", v.unmatched, v.lead_id as "leadId",
             l.name as "leadName", l.status as "leadStatus", c.slug as "campaignSlug", c.name as "campaignName", v.last_human_in as "lastHumanIn",
             x.subject, x.from_name as "fromName", x.from_addr as "fromAddr", x.counterpart, x.direction, x.kind, x.mailbox, x.domain, x.folder,
@@ -267,6 +293,7 @@ export interface ThreadMessage {
   sendAttemptId: number | null;
   step: number | null;
   provider: string;
+  intent: string | null;
 }
 
 export async function threadMessages(threadKey: string): Promise<ThreadMessage[]> {
@@ -278,7 +305,8 @@ export async function threadMessages(threadKey: string): Promise<ThreadMessage[]
             m.body_text as "bodyText", m.body_html as "bodyHtml", m.body_fetched_at as "bodyFetchedAt", m.lead_id as "leadId",
             m.campaign_id as "campaignId", m.match_method as "matchMethod", m.match_confidence as "matchConfidence",
             m.suggested_lead_id as "suggestedLeadId", m.sentiment, m.needs_followup as "needsFollowup", m.followup_due_at as "followupDueAt",
-            m.send_attempt_id as "sendAttemptId", sa.step, mb.provider
+            m.send_attempt_id as "sendAttemptId", sa.step, mb.provider,
+            case when m.direction = 'inbound' and m.kind in ('message', 'auto_reply') then ${emailIntentSql('m')} end as intent
        from mail_messages m join mailboxes mb on mb.id = m.mailbox_id left join send_attempts sa on sa.id = m.send_attempt_id
       where m.thread_key = $1
       order by coalesce(m.message_id, m.id::text), (m.folder ~* '^inbox$') desc, m.id`,
@@ -339,6 +367,10 @@ export interface LeadContext {
   sourceUrl: string | null;
   sentFrom: string | null;
   maxSteps: number | null;
+  sourceKey: string | null;
+  waChatId: string | null;
+  stage: string | null;
+  replyIntent: string | null;
 }
 
 export async function leadContext(leadId: number): Promise<LeadContext | null> {
@@ -349,6 +381,7 @@ export async function leadContext(leadId: number): Promise<LeadContext | null> {
             l.first_contacted_at as "firstContactedAt", l.last_contacted_at as "lastContactedAt", l.last_reply_at as "lastReplyAt",
             l.last_response_at as "lastResponseAt", l.next_followup_at as "nextFollowupAt",
             c.name as "campaignName", c.slug as "campaignSlug", s.name as "sourceName", s.external_url as "sourceUrl",
+            s.key as "sourceKey", l.wa_chat_id as "waChatId", ${STAGE_SQL} as stage, l.reply_intent as "replyIntent",
             (select sa.sender from send_attempts sa where sa.lead_id = l.id and sa.result = 'accepted' and sa.sender is not null
               order by sa.occurred_at desc nulls last, sa.id desc limit 1) as "sentFrom"
        from leads l join campaigns c on c.id = l.campaign_id left join sources s on s.id = l.source_id where l.id = $1`,

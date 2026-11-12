@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* Rohit Kumar SEO Outreach — calm light workspace, blue accents, colour-coded pipeline stages.
+/* Rohit Kumar SEO Outreach — calm light workspace with an indigo brand, emerald for calls and
+   WhatsApp, amber for reminders, and colour-coded pipeline stages and reply types.
    Built phone-first: big tap targets, bottom navigation, safe-area aware. */
 @theme {
   --color-navy-950: #0a1426;
@@ -15,9 +16,9 @@
   --color-ink: #0f172a;
   --color-ink-2: #4b5567;
   --color-ink-3: #7a8497;
-  --color-brand: #2563eb;
-  --color-brand-600: #1d4ed8;
-  --color-brand-50: #eef4ff;
+  --color-brand: #4f46e5;
+  --color-brand-600: #4338ca;
+  --color-brand-50: #eef2ff;
   --color-series-original: #2a78d6;
   --color-series-followup: #1baf7a;
   --color-good: #0ca30c;

@@ -83,7 +83,7 @@ export function LeadActionBar({ links, waHref, emailHref, name }: { links: Conta
         </span>
       )}
       {mail ? (
-        <a href={mail} className={`${tile} bg-brand text-white shadow-sm shadow-blue-700/20 hover:bg-brand-600`} aria-label={`Email ${name}`}>
+        <a href={mail} className={`${tile} bg-brand text-white shadow-sm shadow-indigo-700/25 hover:bg-brand-600`} aria-label={`Email ${name}`}>
           <Mail size={21} aria-hidden /> Email
         </a>
       ) : (
