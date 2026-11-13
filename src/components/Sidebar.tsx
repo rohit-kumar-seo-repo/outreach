@@ -62,19 +62,23 @@ function isActive(path: string, href: string) {
   return href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
 }
 
-function Brand() {
+function Brand({ dark = false }: { dark?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand to-violet-600 text-[13px] font-bold text-white shadow-sm">
+      <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-[13px] font-bold text-white shadow-[0_6px_16px_-6px_rgba(139,92,246,0.8)] ring-1 ring-white/20">
         RK
       </span>
       <span className="leading-tight">
-        <span className="block text-[14px] font-semibold text-ink">Outreach</span>
-        <span className="block text-[11px] text-ink-3">Rohit Kumar SEO</span>
+        <span className={`block text-[14px] font-semibold ${dark ? 'text-white' : 'text-ink'}`}>Outreach</span>
+        <span className={`block text-[11px] ${dark ? 'text-slate-400' : 'text-ink-3'}`}>Rohit Kumar SEO</span>
       </span>
     </Link>
   );
 }
+
+/** Midnight panel with a soft aurora at the top (desktop sidebar and the phone menu). */
+const PANEL_BG =
+  'bg-[#0a0e1f] [background-image:radial-gradient(22rem_16rem_at_0%_0%,rgba(99,102,241,0.32),transparent_70%),radial-gradient(18rem_14rem_at_100%_18%,rgba(217,70,239,0.14),transparent_70%),radial-gradient(20rem_16rem_at_20%_100%,rgba(6,182,212,0.1),transparent_70%)]';
 
 function NavLink({ item, path, badge, onNavigate }: { item: Item; path: string; badge?: number; onNavigate?: () => void }) {
   const active = isActive(path, item.href);
@@ -84,16 +88,22 @@ function NavLink({ item, path, badge, onNavigate }: { item: Item; path: string; 
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
-      className={`relative flex items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] ${active ? 'font-semibold text-ink' : 'text-ink-2 hover:bg-slate-100 hover:text-ink'}`}
+      className={`relative flex items-center gap-3 rounded-xl px-2.5 py-2 text-[13.5px] ${active ? 'font-semibold text-white' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'}`}
     >
       {active && (
-        <motion.span layoutId="nav-active" className="absolute inset-0 rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)] ring-1 ring-line" transition={{ type: 'spring', stiffness: 420, damping: 36 }} />
+        <motion.span
+          layoutId="nav-active"
+          className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/30 via-violet-500/20 to-fuchsia-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/10"
+          transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+        >
+          <span className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-indigo-400 to-fuchsia-400" />
+        </motion.span>
       )}
-      <Icon size={17} aria-hidden className={`relative z-10 ${active ? 'text-brand' : 'text-ink-3'}`} />
+      <Icon size={17} aria-hidden className={`relative z-10 ${active ? 'text-indigo-200' : 'text-slate-400'}`} />
       <span className="relative z-10 flex-1">{item.label}</span>
       {badge ? (
         <span
-          className={`relative z-10 min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10.5px] font-semibold text-white tabular ${item.href === '/alerts' ? 'bg-critical' : 'bg-brand'}`}
+          className={`relative z-10 min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10.5px] font-semibold text-white tabular ${item.href === '/alerts' ? 'bg-critical' : 'bg-gradient-to-r from-indigo-500 to-fuchsia-500 shadow-[0_4px_10px_-4px_rgba(217,70,239,0.8)]'}`}
           aria-label={`${badge} need attention`}
         >
           {badge > 99 ? '99+' : badge}
@@ -117,7 +127,7 @@ function Group({ title, items, path, attention, onNavigate, collapsible }: { tit
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className="mb-1 flex w-full items-center justify-between px-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3 hover:text-ink-2"
+            className="mb-1 flex w-full items-center justify-between px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300"
             aria-expanded={open}
           >
             <span className="flex items-center gap-1.5">
@@ -127,7 +137,7 @@ function Group({ title, items, path, attention, onNavigate, collapsible }: { tit
             <ChevronDown size={14} className={`transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden />
           </button>
         ) : (
-          <div className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{title}</div>
+          <div className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</div>
         ))}
       <AnimatePresence initial={false}>
         {open && (
@@ -158,12 +168,12 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
     </nav>
   );
   const footer = (
-    <div className="border-t border-line px-4 py-3">
-      <div className="truncate text-[12px] text-ink-3" title={email}>
+    <div className="border-t border-white/10 px-4 py-3">
+      <div className="truncate text-[12px] text-slate-400" title={email}>
         {email}
       </div>
       <form action={logout}>
-        <button type="submit" className="mt-1.5 flex items-center gap-2 text-[12px] font-medium text-ink-2 hover:text-ink">
+        <button type="submit" className="mt-1.5 flex items-center gap-2 text-[12px] font-medium text-slate-300 hover:text-white">
           <LogOut size={14} aria-hidden /> Sign out
         </button>
       </form>
@@ -192,7 +202,7 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
           <>
             <motion.div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)} aria-hidden initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
             <motion.aside
-              className="fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-80 flex-col bg-canvas shadow-2xl lg:hidden"
+              className={`fixed inset-y-0 right-0 z-50 flex w-[82%] max-w-80 flex-col shadow-2xl lg:hidden ${PANEL_BG}`}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -200,8 +210,8 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
               aria-label="Menu"
             >
               <div className="flex items-center justify-between px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
-                <Brand />
-                <button type="button" onClick={() => setOpen(false)} className="icon-btn" aria-label="Close menu">
+                <Brand dark />
+                <button type="button" onClick={() => setOpen(false)} className="icon-btn text-slate-300 hover:bg-white/10 hover:text-white" aria-label="Close menu">
                   <X size={20} aria-hidden />
                 </button>
               </div>
@@ -213,9 +223,9 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
       </AnimatePresence>
 
       {/* Desktop sidebar. */}
-      <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-line bg-canvas lg:flex" aria-label="Sidebar">
+      <aside className={`hidden h-full w-60 shrink-0 flex-col lg:flex ${PANEL_BG}`} aria-label="Sidebar">
         <div className="px-5 pb-5 pt-5">
-          <Brand />
+          <Brand dark />
         </div>
         {nav()}
         {footer}
@@ -229,7 +239,7 @@ export function BottomNav({ attention }: { attention: Record<string, number> }) 
   const path = usePathname();
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/60 bg-white/80 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_-12px_rgba(49,46,129,0.25)] backdrop-blur-xl backdrop-saturate-150 lg:hidden"
       aria-label="Primary"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
@@ -241,7 +251,7 @@ export function BottomNav({ attention }: { attention: Record<string, number> }) 
             return (
               <li key={t.href} className="flex justify-center">
                 <Link href={t.href} aria-current={active ? 'page' : undefined} className="-mt-5 flex flex-col items-center gap-0.5" aria-label="Call mode">
-                  <span className={`flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-4 ring-white transition-transform active:scale-95`}>
+                  <span className="grad-call btn-shine flex h-14 w-14 items-center justify-center rounded-full ring-4 ring-white transition-transform active:scale-95">
                     <Icon size={24} aria-hidden />
                   </span>
                   <span className={`text-[10.5px] font-medium ${active ? 'text-emerald-700' : 'text-ink-3'}`}>{t.label}</span>
@@ -252,10 +262,11 @@ export function BottomNav({ attention }: { attention: Record<string, number> }) 
           return (
             <li key={t.href}>
               <Link href={t.href} aria-current={active ? 'page' : undefined} className="relative flex flex-col items-center gap-0.5 pb-1.5 pt-2">
+                {active && <span className="absolute top-0 h-[3px] w-8 rounded-b-full bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500" aria-hidden />}
                 <span className="relative">
                   <Icon size={22} aria-hidden className={active ? 'text-brand' : 'text-ink-3'} strokeWidth={active ? 2.3 : 1.9} />
                   {badge > 0 && (
-                    <span className="absolute -right-2.5 -top-1.5 min-w-[18px] rounded-full bg-critical px-1 text-center text-[10px] font-semibold leading-[18px] text-white ring-2 ring-white tabular">
+                    <span className="absolute -right-2.5 -top-1.5 min-w-[18px] rounded-full bg-gradient-to-r from-rose-500 to-fuchsia-500 px-1 text-center text-[10px] font-semibold leading-[18px] text-white ring-2 ring-white tabular">
                       {badge > 99 ? '99+' : badge}
                     </span>
                   )}

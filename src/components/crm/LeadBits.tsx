@@ -1,6 +1,6 @@
 // Small presentational pieces for leads. No server imports: usable from server and client components.
-import { AlarmClock, Mail, MessageCircle, Phone, Star } from 'lucide-react';
-import { INTENT_META, isIntent } from '@/lib/crm/intent';
+import { AlarmClock, Mail, MessageCircle, Phone, Snowflake, Star } from 'lucide-react';
+import { INTENT_META, INTENT_TINT, isIntent } from '@/lib/crm/intent';
 import { STAGE_META, type Stage } from '@/lib/crm/stages';
 import { initials } from '@/lib/crm/contact';
 import type { ContactLinks } from '@/lib/crm/contact';
@@ -16,15 +16,34 @@ export function StageBadge({ stage, className = '' }: { stage: Stage | null; cla
   );
 }
 
+/** Initials avatar filled with the stage's gradient (see .tint-* in globals.css). */
 export function Avatar({ name, stage, size = 40 }: { name: string | null; stage: Stage | null; size?: number }) {
-  const tone = stage ? STAGE_META[stage].chip : 'bg-slate-100 text-slate-600 ring-slate-200';
   return (
     <span
       aria-hidden
       style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-1 ring-inset ${tone}`}
+      className={`avatar-grad tint-${stage ?? 'none'} inline-flex shrink-0 items-center justify-center rounded-full font-semibold`}
     >
       {initials(name)}
+    </span>
+  );
+}
+
+/** Why a lead needs you: "Waiting 2 h" (they replied) or "Quiet 6 days" (a hot lead went silent). */
+export function AttentionBadge({ attention, label }: { attention: 'reply' | 'due' | 'cold' | null; label: string | null }) {
+  if (!label || !attention || attention === 'due') return null;
+  if (attention === 'reply') {
+    return (
+      <span className="attn-reply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-gradient-to-r from-indigo-50 to-pink-50 px-2 py-0.5 text-[11.5px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200/80">
+        <span className="pulse-dot !h-1.5 !w-1.5" aria-hidden />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-r from-sky-50 to-indigo-50 px-2 py-0.5 text-[11.5px] font-semibold text-sky-700 ring-1 ring-inset ring-sky-200">
+      <Snowflake size={12} aria-hidden />
+      {label}
     </span>
   );
 }
@@ -118,9 +137,9 @@ export function IntentBadge({ intent, className = '' }: { intent: string | null 
 
 /** Round initials avatar tinted by what their reply means. */
 export function IntentAvatar({ name, intent, size = 40 }: { name: string | null; intent: string | null | undefined; size?: number }) {
-  const tone = isIntent(intent) ? INTENT_META[intent].avatar : 'bg-slate-100 text-slate-600';
+  const tint = isIntent(intent) ? INTENT_TINT[intent] : 'tint-none';
   return (
-    <span aria-hidden style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }} className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${tone}`}>
+    <span aria-hidden style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }} className={`avatar-grad ${tint} inline-flex shrink-0 items-center justify-center rounded-full font-semibold`}>
       {initials(name)}
     </span>
   );

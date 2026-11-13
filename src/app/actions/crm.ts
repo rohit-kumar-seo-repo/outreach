@@ -7,6 +7,7 @@ import { assertSameOrigin, requireSession } from '@/lib/auth/session';
 import { one, q, tx } from '@/lib/db';
 import { env } from '@/lib/env';
 import { addDays, localDate } from '@/lib/time';
+import { endOfTodaySqlLiteral } from '@/lib/crm/attention';
 import { STAGE_OUTCOME, STAGE_SQL, type CallOutcome, type ReminderPick, type Stage, isCallOutcome, isStage } from '@/lib/crm/stages';
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -138,6 +139,35 @@ export async function logCall(input: {
       await applyReminder(leadId, reminder, actor, c);
     }
     await audit(actor, 'log_call', leadId, { outcome, stage: next, reminder }, c);
+    return true;
+  });
+  if (!ok) return { ok: false, error: 'Lead not found' };
+  refresh(leadId);
+  return { ok: true };
+}
+
+/**
+ * "Done" on a lead that needs you: hides it until something new happens (they write again, a
+ * reminder comes due, or it goes quiet). A reminder due today is completed, and a lead still in
+ * "New" moves to "Contacted" since you have dealt with it.
+ */
+export async function markDone(leadId: number): Promise<ActionResult> {
+  const actor = await guard();
+  if (!leadIdOk(leadId)) return { ok: false, error: 'Invalid lead' };
+  const ok = await tx(async (c) => {
+    const cur = await one<{ st: string | null; due: boolean | null }>(
+      `select ${STAGE_SQL} as st, (l.manual_followup_at < ${endOfTodaySqlLiteral()}) as due from leads l where l.id = $1`,
+      [leadId],
+      c,
+    );
+    if (!cur) return false;
+    if (cur.due) {
+      await q(`update leads set manual_followup_at = null where id = $1`, [leadId], c);
+      await q(`insert into lead_activities (lead_id, kind, outcome, body, created_by) values ($1, 'reminder', 'cleared', 'Marked done', $2)`, [leadId, actor], c);
+    }
+    if (cur.st === 'new') await applyStage(leadId, 'contacted', actor, c);
+    await q(`update leads set attention_cleared_at = now() where id = $1`, [leadId], c);
+    await audit(actor, 'mark_done', leadId, { stage: cur.st, reminderDone: !!cur.due }, c);
     return true;
   });
   if (!ok) return { ok: false, error: 'Lead not found' };

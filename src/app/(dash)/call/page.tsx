@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight, MessageCircle, PartyPopper, SkipForward, StickyNote, X } from 'lucide-react';
+import { ArrowRight, MessageCircle, PartyPopper, PhoneCall, SkipForward, StickyNote, X } from 'lucide-react';
 import { CallButton, CallLogger } from '@/components/crm/CallMode';
-import { Avatar, IntentBadge, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
+import { AttentionBadge, Avatar, IntentBadge, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
 import { one } from '@/lib/db';
 import { present } from '@/lib/crm/present';
 import { callQueueIds, cardsByIds } from '@/lib/crm/queries';
@@ -32,7 +32,12 @@ export default async function CallModePage({ searchParams }: { searchParams: Pro
     <div className="mx-auto max-w-xl">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-ink">Call mode</h1>
+          <h1 className="flex items-center gap-2.5 text-[22px] font-bold tracking-tight text-ink">
+            <span className="grad-call flex h-8 w-8 items-center justify-center rounded-xl">
+              <PhoneCall size={16} aria-hidden />
+            </span>
+            Call mode
+          </h1>
           <p className="text-[13px] text-ink-3">{queue.length > 0 ? `${queue.length} to call · due reminders first, then new replies` : 'Queue is empty'}</p>
         </div>
         <Link href="/" className="icon-btn" aria-label="Exit call mode">
@@ -60,8 +65,8 @@ export default async function CallModePage({ searchParams }: { searchParams: Pro
         </div>
       ) : (
         <>
-          <article className="card overflow-hidden">
-            <div className="p-5">
+          <article className={`card overflow-hidden ${lead.attention ? `ring-grad attn-${lead.attention}` : ''}`}>
+            <div className={`stage-wash tint-${lead.stage ?? 'none'} p-5`}>
               <div className="flex items-start gap-3.5">
                 <Avatar name={lead.name} stage={lead.stage} size={60} />
                 <div className="min-w-0 flex-1">
@@ -71,13 +76,14 @@ export default async function CallModePage({ searchParams }: { searchParams: Pro
                   <p className="mt-0.5 text-[13.5px] text-ink-3">{[lead.category, lead.city].filter(Boolean).join(' · ') || lead.campaignName}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <StageBadge stage={lead.stage} />
+                    <AttentionBadge attention={lead.attention} label={lead.attentionLabel} />
                     {lead.replyIntent !== 'other' && <IntentBadge intent={lead.replyIntent} />}
                     <ReminderBadge label={lead.reminderLabel} tone={lead.reminderTone} />
                   </div>
                 </div>
               </div>
               {lead.replyText && (
-                <blockquote className="mt-4 rounded-2xl rounded-tl-sm bg-sky-50/70 px-4 py-3 text-[15px] leading-relaxed text-ink ring-1 ring-sky-100">
+                <blockquote className="mt-4 rounded-2xl rounded-tl-sm bg-white/80 px-4 py-3 text-[15px] leading-relaxed text-ink shadow-sm ring-1 ring-line">
                   &ldquo;{lead.replyText}&rdquo;
                   <footer className="mt-1 text-[12px] text-ink-3">
                     {lead.replyChannel === 'whatsapp' ? 'WhatsApp' : 'Email'} reply · {lead.lastReplyAt ? relativeTime(lead.lastReplyAt) : ''}
@@ -94,7 +100,7 @@ export default async function CallModePage({ searchParams }: { searchParams: Pro
               )}
               {lead.lastCallLabel && <p className="mt-2 text-[12.5px] text-ink-3">Last call: {lead.lastCallLabel}</p>}
             </div>
-            <div className="space-y-2 border-t border-line bg-slate-50/60 p-4">
+            <div className="space-y-2 border-t border-line bg-gradient-to-b from-slate-50/70 to-white p-4">
               {lead.links.tel && <CallButton tel={lead.links.tel} label={lead.links.phoneLabel ?? ''} />}
               <div className="grid grid-cols-2 gap-2">
                 {lead.links.wa ? (

@@ -60,7 +60,7 @@ export function LeadActionBar({ links, waHref, emailHref, name }: { links: Conta
   return (
     <div className="grid grid-cols-3 gap-2">
       {links.tel ? (
-        <a href={links.tel} onClick={onCall} className={`${tile} bg-emerald-600 text-white shadow-sm shadow-emerald-700/20 hover:bg-emerald-700`} aria-label={`Call ${name}`}>
+        <a href={links.tel} onClick={onCall} className={`${tile} grad-call hover:brightness-105`} aria-label={`Call ${name}`}>
           <Phone size={21} aria-hidden /> Call
         </a>
       ) : (
@@ -72,7 +72,7 @@ export function LeadActionBar({ links, waHref, emailHref, name }: { links: Conta
         <a
           href={wa}
           {...(wa.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-          className={`${tile} bg-[#25d366] text-[#06371b] shadow-sm shadow-green-700/20 hover:bg-[#1fbd5a]`}
+          className={`${tile} bg-gradient-to-br from-[#4ade80] via-[#25d366] to-[#14b8a6] text-[#053b1d] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_12px_28px_-12px_rgba(37,211,102,0.8)] hover:brightness-105`}
           aria-label={`WhatsApp ${name}`}
         >
           <MessageCircle size={21} aria-hidden /> WhatsApp
@@ -83,7 +83,7 @@ export function LeadActionBar({ links, waHref, emailHref, name }: { links: Conta
         </span>
       )}
       {mail ? (
-        <a href={mail} className={`${tile} bg-brand text-white shadow-sm shadow-indigo-700/25 hover:bg-brand-600`} aria-label={`Email ${name}`}>
+        <a href={mail} className={`${tile} bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_12px_28px_-12px_rgba(139,92,246,0.85)] hover:brightness-105`} aria-label={`Email ${name}`}>
           <Mail size={21} aria-hidden /> Email
         </a>
       ) : (

@@ -245,7 +245,18 @@ A lead enters the pipeline when it replies or when you log a call on it (a call 
 
 **Reminders** are the follow-ups you set yourself (Today, the lead page, the call logger). A call with no answer sets one for tomorrow 10:00, a busy line for 3 hours later, unless you pick otherwise. Logging a call clears a reminder that was already due. Won and Lost clear reminders. These are separate from the automatic sequence follow-ups n8n sends.
 
-**Call mode queue**: open-stage leads with a callable number, in this order: reminders that are due (oldest first), New replies (newest first), leads not called in 3 days, starred. A lead is skipped if it was called in the last 2 hours (unless a reminder fell due after that call), has a reminder in the future, or its last call was a wrong number.
+**Call mode queue**: open-stage leads with a callable number, in this order: reminders that are due (oldest first), leads waiting on you (see Needs you), New replies (newest first), leads not called in 3 days, starred. A lead is skipped if it was called in the last 2 hours (unless a reminder fell due after that call), has a reminder in the future, or its last call was a wrong number.
+
+## Needs you (Focus)
+
+Today, the Leads → **Needs you** tab and the Today badge show only leads that need a person now. Checked in this order (`src/lib/crm/attention.ts`):
+
+1. **Reminder due**: a reminder you set is due today or overdue (any stage).
+2. A reminder later than today **parks** the lead: it is hidden until then.
+3. **Waiting on you**: their latest message that needs you (interested, a question, wants a call, later, or anything substantive; see Reply types) is newer than everything on your side: a reply on any channel (dashboard, webmail, WhatsApp), a call, a note, a stage change, or **Done**. Leads that only said hi / thanks, sent an auto-reply or said no never appear; neither do won / lost leads unless they write again after you set that stage.
+4. **Going quiet**: an Interested / Meeting / Proposal lead with no touch from either side for 5 days.
+
+**Done** (on a card, the lead page, or Done in the email / WhatsApp inbox) hides the lead until something new happens; it completes a reminder that is due and moves a lead still in New to Contacted. **Later** sets a reminder (3 hours, tomorrow, 3 days, next week). Today also says what was kept out of the way: replies in the last 30 days that were only a hi, thanks, auto-reply or no; open leads you already answered (waiting on them); and leads parked behind a later reminder.
 
 ## Spreadsheet capacity
 

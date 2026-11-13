@@ -105,8 +105,15 @@ export async function markHandled(form: FormData): Promise<void> {
      on conflict (thread_key) do update set handled_at = excluded.handled_at, updated_at = now(), updated_by = excluded.updated_by`,
     [thread, undo, actor],
   );
+  // The lead(s) in this conversation leave "Needs you" on Today too (or come back on undo).
+  await q(
+    `update leads set attention_cleared_at = case when $2 then null else now() end
+      where id in (select distinct lead_id from mail_messages where thread_key = $1 and lead_id is not null)`,
+    [thread, undo],
+  );
   await audit(actor, undo ? 'reopen_thread' : 'mark_handled', thread);
   revalidatePath('/inbox');
+  revalidatePath('/');
 }
 
 /** Read state lives in the dashboard only; the mailbox's own read flags are never changed. */

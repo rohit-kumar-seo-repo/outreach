@@ -27,7 +27,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const legacy = !!(sp.status || sp.followup || sp.outcome);
   const rawView = sp.view ?? (legacy ? 'contacts' : 'open');
-  const view: PipelineView = rawView === 'all' || rawView === 'contacts' || rawView === 'open' || isStage(rawView) ? (rawView as PipelineView) : 'open';
+  const view: PipelineView = rawView === 'focus' || rawView === 'all' || rawView === 'contacts' || rawView === 'open' || isStage(rawView) ? (rawView as PipelineView) : 'open';
   const followup = sp.followup === 'due' || sp.followup === 'today' || sp.followup === 'overdue' ? sp.followup : null;
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
   const channel = sp.channel === 'email' || sp.channel === 'whatsapp' ? sp.channel : null;
@@ -41,7 +41,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     followup,
     outcome: sp.outcome || null,
   };
-  const board = sp.mode === 'board' && view !== 'contacts';
+  const board = sp.mode === 'board' && view !== 'contacts' && view !== 'focus';
   const boardStages: Stage[] = view === 'all' || view === 'open' ? [...OPEN_STAGES, 'won'] : isStage(view) ? [view] : OPEN_STAGES;
 
   const [counts, campaigns, data] = await Promise.all([
@@ -53,6 +53,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   ]);
   const openTotal = OPEN_STAGES.reduce((n, s) => n + counts[s], 0);
   const tabs: { key: PipelineView; label: string; n: number; dot?: string }[] = [
+    { key: 'focus', label: 'Needs you', n: counts.focus, dot: 'pulse' },
     { key: 'open', label: 'Open', n: openTotal },
     ...STAGES.map((s) => ({ key: s as PipelineView, label: STAGE_META[s].short, n: counts[s], dot: STAGE_META[s].dot })),
     { key: 'contacts', label: 'All contacts', n: counts.contacts },
@@ -71,7 +72,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-[26px] font-bold tracking-tight text-ink">Leads</h1>
-          <p className="mt-0.5 text-[13.5px] text-ink-2">Everyone who responded to outreach, by stage. Tap a lead to call, message or update it.</p>
+          <p className="mt-0.5 text-[13.5px] text-ink-2">
+            {view === 'focus' ? 'Only the leads waiting on you, with a reminder due, or going quiet. Mark them done as you go.' : 'Everyone who responded to outreach, by stage. Tap a lead to call, message or update it.'}
+          </p>
         </div>
         <a className="btn hidden sm:inline-flex" href={`/api/export/leads${qs(sp, {}).replace('/leads', '')}`}>
           <Download size={15} aria-hidden /> Export
@@ -79,13 +82,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       </div>
 
       <div className="pb-3">
-        <LeadFilters campaigns={campaigns.map((c) => ({ value: c.slug, label: c.name }))} showModeToggle={view !== 'contacts'} />
+        <LeadFilters campaigns={campaigns.map((c) => ({ value: c.slug, label: c.name }))} showModeToggle={view !== 'contacts' && view !== 'focus'} />
       </div>
 
       <nav className="no-scrollbar -mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Stages">
         {tabs.map((t) => (
           <Link key={t.key} href={qs(sp, { view: t.key === 'open' ? undefined : t.key, page: undefined, status: undefined, followup: undefined, outcome: undefined })} aria-current={view === t.key ? 'page' : undefined} className="chip">
-            {t.dot && <span className={`h-2 w-2 rounded-full ${t.dot}`} aria-hidden />}
+            {t.dot === 'pulse' ? (
+              <span className="attn-reply pulse-dot !h-2 !w-2" aria-hidden />
+            ) : (
+              t.dot && <span className={`h-2 w-2 rounded-full ${t.dot}`} aria-hidden />
+            )}
             {t.label}
             <span className={`tabular ${view === t.key ? 'text-white/70' : 'text-ink-3'}`}>{fmt(t.n)}</span>
           </Link>
@@ -111,7 +118,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         />
       ) : list && list.length > 0 ? (
         <>
-          <LeadList leads={list} showStage={!isStage(view)} />
+          <LeadList leads={list} showStage={!isStage(view)} actions={view === 'focus'} />
           {total > PAGE && (
             <div className="mt-5 flex items-center justify-between text-[13px] text-ink-2">
               {page > 1 ? (
@@ -136,8 +143,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </>
       ) : (
         <div className="card">
-          <EmptyState title={sp.q ? `Nothing matches “${sp.q}”` : view === 'new' ? 'No new replies' : 'No leads here yet'}>
-            {sp.q
+          <EmptyState title={sp.q ? `Nothing matches “${sp.q}”` : view === 'focus' ? 'Nothing needs you right now' : view === 'new' ? 'No new replies' : 'No leads here yet'}>
+            {view === 'focus' && !sp.q
+              ? 'Nobody is waiting on you, no reminders are due and no hot lead has gone quiet. The Open tab has your whole pipeline.'
+              : sp.q
               ? 'Try a shorter name, part of the phone number, or the “All contacts” tab.'
               : view === 'contacts'
                 ? 'Leads appear once the spreadsheets sync through the n8n Data Bridge.'

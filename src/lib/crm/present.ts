@@ -6,6 +6,8 @@ import type { LeadCard } from './queries';
 export type ReminderTone = 'overdue' | 'today' | 'soon' | 'later';
 
 export interface LeadCardView extends LeadCard {
+  /** e.g. "Waiting 2 h" / "Quiet 6 days" for leads that need you (reminders use reminderLabel). */
+  attentionLabel: string | null;
   whenLabel: string | null;
   reminderLabel: string | null;
   reminderTone: ReminderTone | null;
@@ -33,6 +35,20 @@ export function reminderLabel(at: Date | null, now = new Date()): { label: strin
   return { label: dayLabel(at), tone: 'later' };
 }
 
+function waited(from: Date, now: Date): string {
+  const mins = Math.max(0, Math.round((now.getTime() - from.getTime()) / 60000));
+  if (mins < 60) return `${Math.max(1, mins)} min`;
+  const h = Math.round(mins / 60);
+  if (h < 48) return `${h} h`;
+  return `${Math.round(h / 24)} days`;
+}
+
+function attentionLabel(c: LeadCard, now: Date): string | null {
+  if (c.attention === 'reply' && c.needsReplyAt) return `Waiting ${waited(c.needsReplyAt, now)}`;
+  if (c.attention === 'cold' && c.lastTouchAt) return `Quiet ${waited(c.lastTouchAt, now)}`;
+  return null;
+}
+
 const CALL_WORD: Record<string, string> = { connected: 'Spoke', no_answer: 'No answer', busy: 'Busy', wrong_number: 'Wrong number' };
 
 export function present(c: LeadCard, now = new Date()): LeadCardView {
@@ -40,6 +56,7 @@ export function present(c: LeadCard, now = new Date()): LeadCardView {
   const r = reminderLabel(c.reminderAt, now);
   return {
     ...c,
+    attentionLabel: attentionLabel(c, now),
     whenLabel: latest ? relativeTime(latest, now) : null,
     reminderLabel: r?.label ?? null,
     reminderTone: r?.tone ?? null,

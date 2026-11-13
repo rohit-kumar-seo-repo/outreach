@@ -4,6 +4,7 @@ import { env } from '../env';
 import { Params } from '../metrics/filters';
 import { registry } from '../registry';
 import { addDays, localDate } from '../time';
+import { attentionOrderSql, attentionSql, endOfTodaySqlLiteral, isAttention, LAST_TOUCH_SQL, type Attention } from './attention';
 import { contactLinks, type ContactLinks } from './contact';
 import { OPEN_STAGES, STAGE_SQL, type Stage, isStage } from './stages';
 
@@ -33,17 +34,25 @@ export interface LeadCard {
   replyChannel: 'email' | 'whatsapp' | null;
   replyText: string | null;
   replyIntent: string | null;
+  /** Why this lead needs you now (null: it does not). See src/lib/crm/attention.ts. */
+  attention: Attention | null;
+  needsReplyAt: Date | null;
+  /** Last touch from either side (their reply or anything you did). */
+  lastTouchAt: Date | null;
   links: ContactLinks;
 }
 
-type CardRow = Omit<LeadCard, 'links' | 'replyText'> & { phoneNorm: string | null; replyText: string | null };
+type CardRow = Omit<LeadCard, 'links' | 'replyText' | 'attention'> & { phoneNorm: string | null; replyText: string | null; attention: string | null };
 
-const CARD_COLS = `l.id, l.name, l.email_norm as email, l.phone, l.phone_norm as "phoneNorm", l.wa_chat_id as "waChatId", l.city, l.category,
+// A function, not a constant: the attention SQL reads the app timezone at request time.
+const cardCols = () => `l.id, l.name, l.email_norm as email, l.phone, l.phone_norm as "phoneNorm", l.wa_chat_id as "waChatId", l.city, l.category,
   c.slug as "campaignSlug", c.name as "campaignName", c.channel, s.key as "sourceKey",
   ${STAGE_SQL} as stage, l.starred, l.manual_followup_at as "reminderAt", l.last_reply_at as "lastReplyAt",
   l.last_contacted_at as "lastContactedAt", l.last_activity_at as "lastActivityAt", l.last_call_at as "lastCallAt",
   l.last_call_outcome as "lastCallOutcome", l.call_count as "callCount", l.deal_value::float8 as "dealValue", l.deal_currency as "dealCurrency",
-  r.ch as "replyChannel", r.body as "replyText", l.reply_intent as "replyIntent"`;
+  r.ch as "replyChannel", r.body as "replyText", l.reply_intent as "replyIntent",
+  ${attentionSql()} as attention, l.needs_reply_at as "needsReplyAt",
+  nullif(greatest(l.last_reply_at, ${LAST_TOUCH_SQL}), '-infinity'::timestamptz) as "lastTouchAt"`;
 
 // Their latest reply on either channel (email body is cleaned in TS; it may still hold quoted history).
 const REPLY_JOIN = `left join lateral (
@@ -67,6 +76,7 @@ export function toCard(r: CardRow): LeadCard {
   return {
     ...rest,
     stage: isStage(r.stage) ? r.stage : null,
+    attention: isAttention(r.attention) ? r.attention : null,
     replyText: r.replyText ? replySnippet(r.replyText) : null,
     links: contactLinks({ phone: r.phone, phoneNorm, waChatId: r.waChatId, email: r.email, dialCode: dialCodeFor(r.sourceKey) }),
   };
@@ -88,7 +98,7 @@ export function replySnippet(text: string, max = 220): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-export type PipelineView = 'open' | 'all' | 'contacts' | Stage;
+export type PipelineView = 'focus' | 'open' | 'all' | 'contacts' | Stage;
 
 export interface PipelineQuery {
   view: PipelineView;
@@ -113,12 +123,14 @@ function endOfTodaySql(p: Params): string {
 function whereFor(opts: PipelineQuery, p: Params, withView = true): string[] {
   const where: string[] = [];
   if (withView) {
-    if (opts.view === 'open') where.push(`${STAGE_SQL} = any(${p.add(OPEN_STAGES)})`);
+    if (opts.view === 'focus') where.push(`${attentionSql()} is not null`);
+    else if (opts.view === 'open') where.push(`${STAGE_SQL} = any(${p.add(OPEN_STAGES)})`);
     else if (opts.view === 'all') where.push(`${STAGE_SQL} is not null`);
     else if (opts.view === 'contacts') where.push('(l.present_in_source or l.sends_accepted > 0)');
     else where.push(`${STAGE_SQL} = ${p.add(opts.view)}`);
   }
-  if (opts.view !== 'contacts' || !withView) where.push('(not l.is_duplicate or l.stage is not null)');
+  // (Focus applies its own duplicate rule: a due reminder on a duplicate still shows.)
+  if ((opts.view !== 'contacts' && opts.view !== 'focus') || !withView) where.push('(not l.is_duplicate or l.stage is not null)');
   if (opts.campaign) where.push(`c.slug = ${p.add(opts.campaign)}`);
   if (opts.channel) where.push(`c.channel = ${p.add(opts.channel)}`);
   if (opts.starred) where.push('l.starred');
@@ -155,19 +167,21 @@ export async function listPipeline(opts: PipelineQuery): Promise<{ rows: LeadCar
     ? 'l.manual_followup_at asc'
     : opts.followup
       ? 'l.next_followup_at asc'
-      : opts.view === 'contacts'
+      : opts.view === 'focus'
+        ? attentionOrderSql()
+        : opts.view === 'contacts'
         ? 'coalesce(l.last_reply_at, l.last_contacted_at, l.updated_at) desc nulls last, l.id desc'
         : 'l.starred desc, greatest(l.last_reply_at, l.last_activity_at, l.stage_changed_at) desc nulls last, l.id desc';
   const limit = Math.min(opts.limit ?? 60, 300);
   const rows = await q<CardRow>(
-    `select ${CARD_COLS} ${FROM} ${REPLY_JOIN} ${w} order by ${order} limit ${limit} offset ${Math.max(0, opts.offset ?? 0)}`,
+    `select ${cardCols()} ${FROM} ${REPLY_JOIN} ${w} order by ${order} limit ${limit} offset ${Math.max(0, opts.offset ?? 0)}`,
     p.values,
   );
   return { rows: rows.map(toCard), total };
 }
 
 /** Count per pipeline stage for the same filters (campaign, channel, search, starred, due). */
-export async function stageCounts(opts: Omit<PipelineQuery, 'view'>): Promise<Record<Stage, number> & { contacts: number }> {
+export async function stageCounts(opts: Omit<PipelineQuery, 'view'>): Promise<Record<Stage, number> & { contacts: number; focus: number }> {
   const p = new Params();
   const where = whereFor({ ...opts, view: 'all' }, p, false);
   const w = where.length ? `where ${where.map((x) => `(${x})`).join(' and ')}` : '';
@@ -175,25 +189,59 @@ export async function stageCounts(opts: Omit<PipelineQuery, 'view'>): Promise<Re
     `select ${STAGE_SQL} as st, count(*)::int as n ${FROM} ${w} group by 1`,
     p.values,
   );
-  const out = { new: 0, contacted: 0, interested: 0, meeting: 0, proposal: 0, won: 0, lost: 0, contacts: 0 };
+  const out = { new: 0, contacted: 0, interested: 0, meeting: 0, proposal: 0, won: 0, lost: 0, contacts: 0, focus: 0 };
   for (const r of rows) {
     if (r.st && isStage(r.st)) out[r.st] += r.n;
   }
   const p2 = new Params();
   const where2 = whereFor({ ...opts, view: 'contacts' }, p2);
   out.contacts = (await one<{ n: number }>(`select count(*)::int as n ${FROM} where ${where2.map((x) => `(${x})`).join(' and ')}`, p2.values))?.n ?? 0;
+  const p3 = new Params();
+  const where3 = whereFor({ ...opts, view: 'focus' }, p3);
+  out.focus = (await one<{ n: number }>(`select count(*)::int as n ${FROM} where ${where3.map((x) => `(${x})`).join(' and ')}`, p3.values))?.n ?? 0;
   return out;
+}
+
+export interface FocusCounts {
+  reply: number;
+  due: number;
+  cold: number;
+  total: number;
+  /** Open leads you already answered: the ball is in their court. */
+  waitingOnThem: number;
+  /** Leads behind a reminder later than today. */
+  parked: number;
+  /** Leads who replied in the last 30 days with only a hi / thanks / auto-reply / no. */
+  screened: number;
+}
+
+/** How many leads need you now, by reason, plus what was filtered out. */
+export async function focusCounts(): Promise<FocusCounts> {
+  const a = attentionSql();
+  const row = await one<Omit<FocusCounts, 'total'>>(
+    `select count(*) filter (where a = 'reply')::int as reply,
+            count(*) filter (where a = 'due')::int as due,
+            count(*) filter (where a = 'cold')::int as cold,
+            count(*) filter (where a is null and st = any($1) and not dup and l_rem is null)::int as "waitingOnThem",
+            count(*) filter (where a is null and l_rem >= ${endOfTodaySqlLiteral()} and not dup)::int as parked,
+            count(*) filter (where not dup and recent and (st is null or (l_stage is null and st = 'lost')))::int as screened
+       from (select ${a} as a, ${STAGE_SQL} as st, l.stage as l_stage, l.manual_followup_at as l_rem,
+                    (l.is_duplicate and l.stage is null) as dup, (l.last_reply_at > now() - interval '30 days') as recent
+               from leads l
+              where l.last_reply_at is not null or l.manual_followup_at is not null or l.stage is not null) x`,
+    [OPEN_STAGES],
+  );
+  const r = row ?? { reply: 0, due: 0, cold: 0, waitingOnThem: 0, parked: 0, screened: 0 };
+  return { ...r, total: r.reply + r.due + r.cold };
 }
 
 export interface TodayData {
   today: string;
-  reminders: LeadCard[];
-  remindersTotal: number;
-  newReplies: LeadCard[];
-  newRepliesTotal: number;
-  inPlay: LeadCard[];
+  focus: Record<Attention, LeadCard[]>;
+  focusCounts: FocusCounts;
   counts: Record<Stage, number>;
   callsToday: number;
+  repliesHandledToday: number;
   wonThisMonth: { n: number; value: number | null; currency: string | null };
   callQueue: number;
   lastSyncAt: Date | null;
@@ -201,13 +249,14 @@ export interface TodayData {
 }
 
 export async function todayData(): Promise<TodayData> {
-  const [reminders, newReplies, inPlay, counts, misc, queue] = await Promise.all([
-    listPipeline({ view: 'contacts', due: true, limit: 25 }),
-    listPipeline({ view: 'new', limit: 6 }),
-    listPipeline({ view: 'open', limit: 40 }),
+  const [focus, fc, counts, misc, queue] = await Promise.all([
+    listPipeline({ view: 'focus', limit: 90 }),
+    focusCounts(),
     stageCounts({}),
-    one<{ calls: number; won: number; won_value: number | null; currency: string | null; last_sync: Date | null; alerts: number }>(
+    one<{ calls: number; handled: number; won: number; won_value: number | null; currency: string | null; last_sync: Date | null; alerts: number }>(
       `select (select count(*)::int from lead_activities where kind = 'call' and (occurred_at at time zone $1)::date = (now() at time zone $1)::date) as calls,
+              (select count(*)::int from leads l where (l.needs_reply_at at time zone $1)::date = (now() at time zone $1)::date
+                  and l.needs_reply_at <= ${LAST_TOUCH_SQL}) as handled,
               (select count(*)::int from leads where stage = 'won' and date_trunc('month', stage_changed_at at time zone $1) = date_trunc('month', now() at time zone $1)) as won,
               (select sum(deal_value)::float8 from leads where stage = 'won' and date_trunc('month', stage_changed_at at time zone $1) = date_trunc('month', now() at time zone $1)) as won_value,
               (select mode() within group (order by deal_currency) from leads where stage = 'won' and deal_currency is not null) as currency,
@@ -217,16 +266,15 @@ export async function todayData(): Promise<TodayData> {
     ),
     callQueueIds(),
   ]);
-  const shown = new Set([...reminders.rows, ...newReplies.rows].map((r) => r.id));
+  const grouped: Record<Attention, LeadCard[]> = { reply: [], due: [], cold: [] };
+  for (const r of focus.rows) if (r.attention) grouped[r.attention].push(r);
   return {
     today: localDate(),
-    reminders: reminders.rows,
-    remindersTotal: reminders.total,
-    newReplies: newReplies.rows,
-    newRepliesTotal: newReplies.total,
-    inPlay: inPlay.rows.filter((r) => !shown.has(r.id) && r.stage !== 'new').slice(0, 8),
+    focus: grouped,
+    focusCounts: fc,
     counts,
     callsToday: misc?.calls ?? 0,
+    repliesHandledToday: misc?.handled ?? 0,
     wonThisMonth: { n: misc?.won ?? 0, value: misc?.won_value ?? null, currency: misc?.currency ?? null },
     callQueue: queue.length,
     lastSyncAt: misc?.last_sync ?? null,
@@ -252,6 +300,7 @@ export async function callQueueIds(): Promise<number[]> {
       order by
         (l.manual_followup_at is not null) desc,
         l.manual_followup_at asc nulls last,
+        (${attentionSql()} = 'reply') desc,
         (${STAGE_SQL} = 'new') desc,
         (l.last_call_at is null or l.last_call_at < now() - interval '3 days') desc,
         l.starred desc,
@@ -265,7 +314,7 @@ export async function callQueueIds(): Promise<number[]> {
 
 export async function cardsByIds(ids: number[]): Promise<LeadCard[]> {
   if (ids.length === 0) return [];
-  const rows = await q<CardRow>(`select ${CARD_COLS} ${FROM} ${REPLY_JOIN} where l.id = any($1)`, [ids]);
+  const rows = await q<CardRow>(`select ${cardCols()} ${FROM} ${REPLY_JOIN} where l.id = any($1)`, [ids]);
   const byId = new Map(rows.map((r) => [r.id, toCard(r)]));
   return ids.map((id) => byId.get(id)).filter((x): x is LeadCard => !!x);
 }
@@ -337,7 +386,7 @@ export async function leadWorkspace(id: number): Promise<LeadWorkspace | null> {
       campaignId: number;
     }
   >(
-    `select ${CARD_COLS}, l.stage_source as "stageSource", l.stage_changed_at as "stageChangedAt", l.website, l.country,
+    `select ${cardCols()}, l.stage_source as "stageSource", l.stage_changed_at as "stageChangedAt", l.website, l.country,
             s.name as "sourceName", s.external_url as "sourceUrl", l.source_row_number as "rowNumber", l.sheet_status as "sheetStatus",
             l.status, l.suppressed, l.suppression_reason as "suppressionReason", l.present_in_source as "presentInSource",
             l.sends_accepted as "sendsAccepted", l.followups_accepted as "followupsAccepted", l.first_contacted_at as "firstContactedAt",

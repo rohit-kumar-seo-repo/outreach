@@ -318,6 +318,11 @@ async function main() {
     await q(`insert into lead_activities (lead_id, kind, outcome, created_by, occurred_at) values ($1, 'stage', $2, 'preview', now() - interval '1 day')`, [id, stage]);
     if (note) await q(`insert into lead_activities (lead_id, kind, body, created_by, occurred_at) values ($1, 'note', $2, 'preview', now() - interval '20 hours')`, [id, note]);
   }
+  // A hot lead that went quiet: marked interested right after it replied, then no touch from either side.
+  await q(
+    `update leads set stage = 'interested', stage_source = 'manual', stage_changed_at = last_reply_at + interval '1 hour', last_activity_at = last_reply_at + interval '1 hour'
+      where id = (select id from leads where last_reply_at < now() - interval '6 days' and not suppressed and stage is null order by last_reply_at desc limit 1)`,
+  );
   await evaluateAlerts();
   console.log('Preview database seeded with SAMPLE data.');
   await pool().end();

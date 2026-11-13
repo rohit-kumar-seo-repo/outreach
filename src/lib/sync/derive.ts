@@ -2,7 +2,7 @@
 import { q } from '../db';
 import { registry } from '../registry';
 import { finishRun, startRun } from './runs';
-import { emailIntentSql, waIntentSql } from '../crm/intent';
+import { NEEDS_YOU_SQL, emailIntentSql, waIntentSql } from '../crm/intent';
 import { classifyReplies } from './intent-sync';
 import { reconcileWhatsApp } from './wa-store';
 
@@ -144,6 +144,30 @@ export async function deriveLeads(): Promise<void> {
        update leads l set reply_intent = x.it
          from (select l2.id, pick.it from leads l2 left join pick on pick.lead_id = l2.id) x
         where l.id = x.id and l.reply_intent is distinct from x.it`,
+    );
+
+    // 3a3. "Needs you" inputs: their latest message that needs a person, and the latest thing we
+    //      sent after it on any channel (email replies come from 3a; WhatsApp from here). A lead is
+    //      waiting on you while needs_reply_at is newer than everything you did (see src/lib/crm/attention.ts).
+    await q(
+      `with nr as (
+         select lead_id, max(at) as at from (
+           select m.lead_id, m.sent_at as at from mail_messages m
+            where m.is_outreach_reply and m.lead_id is not null and ${emailIntentSql('m')} in ${NEEDS_YOU_SQL}
+           union all
+           select w.lead_id, w.sent_at from wa_messages w
+            where not w.from_me and w.lead_id is not null and ${waIntentSql('w')} in ${NEEDS_YOU_SQL}) x
+          group by lead_id),
+       ob as (
+         select lead_id, max(at) as at from (
+           select w.lead_id, w.sent_at as at from wa_messages w where w.from_me and w.lead_id is not null
+           union all
+           select r.lead_id, coalesce(r.sent_at, r.created_at) from wa_replies r where r.lead_id is not null and r.status in ('sent', 'unknown')) y
+          group by lead_id)
+       update leads l set needs_reply_at = x.nr, last_outbound_at = x.ob
+         from (select l2.id, nr.at as nr, greatest(ob.at, l2.last_response_at) as ob
+                 from leads l2 left join nr on nr.lead_id = l2.id left join ob on ob.lead_id = l2.id) x
+        where l.id = x.id and (l.needs_reply_at, l.last_outbound_at) is distinct from (x.nr, x.ob)`,
     );
 
     // 3b. Latest recorded business outcome (qualified / meeting booked / won / lost).

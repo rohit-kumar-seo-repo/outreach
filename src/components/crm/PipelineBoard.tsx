@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { setStage } from '@/app/actions/crm';
 import type { LeadCardView } from '@/lib/crm/present';
 import { STAGE_META, STAGES, type Stage } from '@/lib/crm/stages';
-import { ContactButtons, ReminderBadge, StarMark } from './LeadBits';
+import { AttentionBadge, ContactButtons, ReminderBadge, StarMark } from './LeadBits';
 
 type Columns = Partial<Record<Stage, LeadCardView[]>>;
 
@@ -64,7 +64,7 @@ export function PipelineBoard({ columns, totals, stages }: { columns: Columns; t
             >
               <header className="flex items-center justify-between px-1.5 pb-2 pt-1">
                 <span className="flex items-center gap-2 text-[13px] font-semibold text-ink">
-                  <span className={`h-2.5 w-2.5 rounded-full ${m.dot}`} aria-hidden />
+                  <span className={`tint-${s} h-2.5 w-2.5 rounded-full bg-gradient-to-br from-[var(--g1)] to-[var(--g2)]`} aria-hidden />
                   {m.label}
                 </span>
                 <span className="rounded-full bg-white px-2 py-0.5 text-[11.5px] font-semibold text-ink-2 tabular ring-1 ring-line">{total}</span>
@@ -80,7 +80,7 @@ export function PipelineBoard({ columns, totals, stages }: { columns: Columns; t
                         e.dataTransfer.setData('text/lead-id', String(l.id));
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      className="group cursor-grab rounded-xl bg-white p-3 shadow-[var(--shadow-card)] ring-1 ring-line active:cursor-grabbing"
+                      className={`group accent-bar tint-${s} relative cursor-grab rounded-xl bg-white p-3 shadow-[var(--shadow-card)] ring-1 ring-line active:cursor-grabbing ${l.attention ? `ring-grad attn-${l.attention}` : ''}`}
                     >
                       <Link href={`/leads/${l.id}`} className="block">
                         <span className="flex items-center gap-1.5">
@@ -90,8 +90,9 @@ export function PipelineBoard({ columns, totals, stages }: { columns: Columns; t
                         <span className="block truncate text-[11.5px] text-ink-3">{[l.category, l.city].filter(Boolean).join(' · ') || l.campaignName}</span>
                         {l.replyText && <span className="mt-1.5 line-clamp-2 block text-[12.5px] leading-snug text-ink-2">&ldquo;{l.replyText}&rdquo;</span>}
                       </Link>
-                      {l.reminderLabel && (
-                        <div className="mt-2">
+                      {(l.reminderLabel || l.attentionLabel) && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <AttentionBadge attention={l.attention} label={l.attentionLabel} />
                           <ReminderBadge label={l.reminderLabel} tone={l.reminderTone} />
                         </div>
                       )}

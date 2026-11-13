@@ -1,7 +1,7 @@
 import { BottomNav, Sidebar } from '@/components/Sidebar';
 import { PageTransition } from '@/components/motion';
 import { requireSession } from '@/lib/auth/session';
-import { STAGE_SQL } from '@/lib/crm/stages';
+import { attentionSql } from '@/lib/crm/attention';
 import { one } from '@/lib/db';
 import { env } from '@/lib/env';
 import { needsReplyCount } from '@/lib/metrics/inbox';
@@ -12,20 +12,18 @@ export const dynamic = 'force-dynamic';
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   const [counts, needsReply, waNeedsReply] = await Promise.all([
-    one<{ reminders: number; fresh: number; errors: number; alerts: number }>(
+    one<{ needsYou: number; errors: number; alerts: number }>(
       `select
-         (select count(*)::int from leads where manual_followup_at < ((((now() at time zone $1)::date + 1)::timestamp) at time zone $1)) as reminders,
-         (select count(*)::int from leads l where ${STAGE_SQL} = 'new' and (not l.is_duplicate or l.stage is not null)) as fresh,
+         (select count(*)::int from leads l where (l.last_reply_at is not null or l.manual_followup_at is not null) and ${attentionSql()} in ('reply', 'due')) as "needsYou",
          (select count(*)::int from integration_errors where resolved_at is null and severity = 'error') as errors,
          (select count(*)::int from alerts where resolved_at is null and acknowledged_at is null) as alerts`,
-      [env.timezone],
     ),
     needsReplyCount(),
     waNeedsReplyCount(),
   ]);
   const attention = {
-    '/': counts?.reminders ?? 0,
-    '/leads': counts?.fresh ?? 0,
+    // Today carries the one number that matters: people waiting on you plus reminders due.
+    '/': counts?.needsYou ?? 0,
     '/alerts': counts?.alerts ?? 0,
     '/inbox': needsReply,
     '/integrations': counts?.errors ?? 0,

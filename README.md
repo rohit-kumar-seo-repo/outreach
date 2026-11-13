@@ -15,7 +15,7 @@ It is also where the leads that respond get worked, phone first: a sales pipelin
 
 | Page | What it shows |
 |---|---|
-| Today | The home screen: reminders due, new replies to handle, leads in play, pipeline counts and a Start calling button |
+| Today | The home screen, filtered to what needs you: people **waiting on you** (they replied and nobody answered), **reminders due**, and hot leads **going quiet**, each with one-tap Done / Later. Greetings, thanks, auto-replies, no's and leads already answered stay out of the way (counted at the bottom). Plus pipeline tiles and a Start calling button. See [Needs you](docs/METRICS.md#needs-you-focus) |
 | Leads | Everyone who responded, by pipeline stage, as a list or a drag-and-drop board; search, filters, CSV export. Each lead page has Call / WhatsApp / Email, stage, reminder, call log, notes, deal value and one timeline of every send, reply, call and note. "All contacts" still lists every sheet row with its outreach status. |
 | Call mode | One lead at a time (due reminders first, then new replies), a big Call button, and one-tap outcomes (Spoke / No answer / Busy / Wrong number) that set the next reminder and move on |
 | Performance | Today's KPIs, a delivery funnel (scheduled → attempted → accepted → bounced / confirmed / unverified), a 30-day chart with filters, and sync health |

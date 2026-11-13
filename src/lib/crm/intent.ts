@@ -16,13 +16,27 @@ export const INTENT_META: Record<Intent, { label: string; chip: string; dot: str
   interested: { label: 'Interested', chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', dot: 'bg-emerald-500', avatar: 'bg-emerald-100 text-emerald-700' },
   question: { label: 'Asked a question', chip: 'bg-sky-50 text-sky-700 ring-sky-200', dot: 'bg-sky-500', avatar: 'bg-sky-100 text-sky-700' },
   callback: { label: 'Wants a call', chip: 'bg-violet-50 text-violet-700 ring-violet-200', dot: 'bg-violet-500', avatar: 'bg-violet-100 text-violet-700' },
-  later: { label: 'Later', chip: 'bg-amber-50 text-amber-800 ring-amber-200', dot: 'bg-amber-500', avatar: 'bg-amber-100 text-amber-800' },
+  later: { label: 'Wants it later', chip: 'bg-amber-50 text-amber-800 ring-amber-200', dot: 'bg-amber-500', avatar: 'bg-amber-100 text-amber-800' },
   other: { label: 'Replied', chip: 'bg-indigo-50 text-indigo-700 ring-indigo-200', dot: 'bg-indigo-500', avatar: 'bg-indigo-100 text-indigo-700' },
   not_interested: { label: 'Not interested', chip: 'bg-rose-50 text-rose-700 ring-rose-200', dot: 'bg-rose-500', avatar: 'bg-rose-100 text-rose-700' },
   unsubscribe: { label: 'Unsubscribe', chip: 'bg-red-50 text-red-700 ring-red-200', dot: 'bg-red-500', avatar: 'bg-red-100 text-red-700' },
   greeting: { label: 'Just a greeting', chip: 'bg-slate-100 text-slate-600 ring-slate-200', dot: 'bg-slate-400', avatar: 'bg-slate-100 text-slate-600' },
   ack: { label: 'Thanks / OK', chip: 'bg-slate-100 text-slate-600 ring-slate-200', dot: 'bg-slate-400', avatar: 'bg-slate-100 text-slate-600' },
   auto: { label: 'Auto-reply', chip: 'bg-zinc-100 text-zinc-600 ring-zinc-200', dot: 'bg-zinc-400', avatar: 'bg-zinc-100 text-zinc-600' },
+};
+
+/** Gradient tint class (globals.css .tint-*) for an intent's avatar. */
+export const INTENT_TINT: Record<Intent, string> = {
+  interested: 'tint-won',
+  question: 'tint-new',
+  callback: 'tint-proposal',
+  later: 'tint-interested',
+  other: 'tint-contacted',
+  not_interested: 'tint-rose',
+  unsubscribe: 'tint-red',
+  greeting: 'tint-none',
+  ack: 'tint-none',
+  auto: 'tint-lost',
 };
 
 export function isIntent(v: unknown): v is Intent {

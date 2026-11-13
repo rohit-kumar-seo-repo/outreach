@@ -160,6 +160,9 @@ export interface WaReplyState extends Partial<ReplyResult> {
   nextKey: string;
 }
 
+/** SQL (params $1 session, $2 chat id): the leads in a WhatsApp conversation. */
+const LEADS_OF_CHAT = `(wa_chat_id = $2 or id in (select distinct lead_id from wa_messages where session = $1 and chat_id = $2 and lead_id is not null))`;
+
 export async function sendWaReplyAction(_prev: WaReplyState, form: FormData): Promise<WaReplyState> {
   const actor = await guard();
   const res = await sendWaReply({ idempotencyKey: String(form.get('key') ?? ''), chatId: String(form.get('chatId') ?? ''), body: String(form.get('body') ?? '') }, actor);
@@ -169,6 +172,8 @@ export async function sendWaReplyAction(_prev: WaReplyState, form: FormData): Pr
       String(form.get('chatId') ?? ''),
       actor,
     ]);
+    // You answered: the lead stops waiting on you right away (the sync confirms it later).
+    await q(`update leads set last_outbound_at = greatest(last_outbound_at, now()) where ${LEADS_OF_CHAT}`, [String(form.get('session') ?? ''), String(form.get('chatId') ?? '')]);
   }
   revalidatePath(`${WA_PATH}/inbox`);
   return { ...res, nextKey: res.replyId ? randomUUID() : String(form.get('key') ?? randomUUID()) };
@@ -190,7 +195,9 @@ export async function markWaHandled(form: FormData): Promise<void> {
      on conflict (session, chat_id) do update set handled_at = excluded.handled_at, updated_at = now(), updated_by = excluded.updated_by`,
     [session, chatId, undo, actor],
   );
+  await q(`update leads set attention_cleared_at = case when $3 then null else now() end where ${LEADS_OF_CHAT}`, [session, chatId, undo]);
   await audit(actor, undo ? 'reopen_wa_thread' : 'mark_wa_handled', `${session}:${chatId}`);
+  revalidatePath('/');
   revalidatePath(`${WA_PATH}/inbox`);
 }
 

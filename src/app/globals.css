@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
-/* Rohit Kumar SEO Outreach — calm light workspace with an indigo brand, emerald for calls and
-   WhatsApp, amber for reminders, and colour-coded pipeline stages and reply types.
+/* Rohit Kumar SEO Outreach — a light workspace on a soft colour-graded canvas (indigo, violet,
+   rose, cyan auroras), a midnight sidebar and hero, emerald for calls and WhatsApp, amber for
+   reminders, and a gradient pair per pipeline stage / reply type / attention reason (.tint-*).
    Built phone-first: big tap targets, bottom navigation, safe-area aware. */
 @theme {
   --color-navy-950: #0a1426;
@@ -9,9 +10,10 @@
   --color-navy-800: #172a4b;
   --color-navy-700: #22375e;
   --color-navy-300: #9fb0cf;
-  --color-canvas: #f6f7f9;
+  --color-canvas: #f4f5fa;
+  --color-midnight: #0b1020;
   --color-card: #ffffff;
-  --color-line: #e6e9ef;
+  --color-line: #e6e8f0;
   --color-line-strong: #d3d9e3;
   --color-ink: #0f172a;
   --color-ink-2: #4b5567;
@@ -32,8 +34,8 @@
   --color-critical: #d03b3b;
   --color-critical-50: #fdeeee;
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.03);
-  --shadow-pop: 0 12px 32px -8px rgba(16, 24, 40, 0.18), 0 4px 8px -4px rgba(16, 24, 40, 0.08);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -12px rgba(49, 46, 129, 0.14);
+  --shadow-pop: 0 18px 40px -14px rgba(49, 46, 129, 0.28), 0 4px 10px -4px rgba(15, 23, 42, 0.08);
 }
 
 :root {
@@ -42,11 +44,26 @@
 
 html,
 body {
-  background: var(--color-canvas);
+  background-color: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* The colour grade: soft auroras fixed behind every page (cheap radial gradients, no blur filter,
+   so phones scroll smoothly). Cards stay solid white on top for legibility. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(56rem 34rem at -8% -12%, rgba(99, 102, 241, 0.16), transparent 62%),
+    radial-gradient(44rem 30rem at 108% -8%, rgba(236, 72, 153, 0.11), transparent 60%),
+    radial-gradient(46rem 36rem at 96% 64%, rgba(6, 182, 212, 0.08), transparent 62%),
+    radial-gradient(40rem 30rem at -6% 102%, rgba(245, 158, 11, 0.07), transparent 60%);
 }
 
 /* Every link, button and clickable row gets a smooth hover/active transition by default, so a
@@ -66,7 +83,7 @@ tr {
   .card {
     background: var(--color-card);
     border: 1px solid var(--color-line);
-    border-radius: 14px;
+    border-radius: 16px;
     box-shadow: var(--shadow-card);
     transition: box-shadow 0.18s ease, border-color 0.18s ease;
   }
@@ -131,9 +148,9 @@ tr {
   .chip[aria-pressed='true'],
   .chip[aria-current='page'],
   .chip[aria-selected='true'] {
-    background: var(--color-ink);
+    background: linear-gradient(135deg, #111827 0%, #312e81 100%);
     color: #fff;
-    box-shadow: none;
+    box-shadow: 0 6px 16px -8px rgba(49, 46, 129, 0.7);
   }
 
   /* Hide a horizontal scroller's scrollbar (stage tabs, quick picks) but keep it scrollable. */
@@ -220,12 +237,13 @@ tr {
     cursor: not-allowed;
   }
   .btn-primary {
-    background: var(--color-brand);
-    border-color: var(--color-brand);
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border-color: transparent;
     color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 18px -10px rgba(79, 70, 229, 0.8);
   }
   .btn-primary:hover {
-    background: var(--color-brand-600);
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
   }
   .btn-sm {
     min-height: 28px;
@@ -240,13 +258,15 @@ tr {
     font-weight: 600;
     border-radius: 14px;
   }
-  .btn-call {
-    background: #059669;
-    border-color: #059669;
+  .btn-call,
+  .grad-call {
+    background: linear-gradient(135deg, #10b981 0%, #059669 55%, #0d9488 100%);
+    border-color: transparent;
     color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 12px 28px -12px rgba(5, 150, 105, 0.75);
   }
   .btn-call:hover {
-    background: #047857;
+    background: linear-gradient(135deg, #059669 0%, #047857 55%, #0f766e 100%);
   }
   .btn-wa {
     background: #25d366;
@@ -255,6 +275,257 @@ tr {
   }
   .btn-wa:hover {
     background: #1fbd5a;
+  }
+
+  /* ---- Colour grading -------------------------------------------------------------------- */
+
+  /* Gradient pairs. Stage tints set --g1/--g2 (+ a soft --gs wash); attention tints set --a1/--a2,
+     so a card can carry both (stage accent bar + attention ring). */
+  .tint-new { --g1: #0ea5e9; --g2: #6366f1; --gs: rgba(14, 165, 233, 0.12); }
+  .tint-contacted { --g1: #6366f1; --g2: #a855f7; --gs: rgba(99, 102, 241, 0.12); }
+  .tint-interested { --g1: #f59e0b; --g2: #f43f5e; --gs: rgba(245, 158, 11, 0.14); }
+  .tint-meeting { --g1: #14b8a6; --g2: #0ea5e9; --gs: rgba(20, 184, 166, 0.13); }
+  .tint-proposal { --g1: #a855f7; --g2: #ec4899; --gs: rgba(168, 85, 247, 0.12); }
+  .tint-won { --g1: #10b981; --g2: #84cc16; --gs: rgba(16, 185, 129, 0.13); }
+  .tint-lost { --g1: #94a3b8; --g2: #64748b; --gs: rgba(100, 116, 139, 0.09); }
+  .tint-none { --g1: #cbd5e1; --g2: #94a3b8; --gs: rgba(148, 163, 184, 0.09); }
+  .tint-rose { --g1: #fb7185; --g2: #e11d48; --gs: rgba(244, 63, 94, 0.1); }
+  .tint-red { --g1: #f87171; --g2: #b91c1c; --gs: rgba(239, 68, 68, 0.1); }
+  .attn-reply { --a1: #6366f1; --a2: #ec4899; }
+  .attn-due { --a1: #f59e0b; --a2: #f97316; }
+  .attn-cold { --a1: #38bdf8; --a2: #818cf8; }
+  .attn-call { --a1: #34d399; --a2: #0d9488; }
+  .attn-brand { --a1: #6366f1; --a2: #a855f7; }
+
+  /* Initials avatar filled with the tint's gradient. */
+  .avatar-grad {
+    background: linear-gradient(135deg, var(--g1), var(--g2));
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 10px -6px var(--g2);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Thin gradient bar down the left edge of a card (pipeline stage). */
+  .accent-bar::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 14px;
+    bottom: 14px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, var(--g1), var(--g2));
+  }
+
+  /* Gradient border (attention): a masked ring painted over the card's own 1px border. */
+  .ring-grad {
+    position: relative;
+    border-color: transparent;
+  }
+  .ring-grad::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(135deg, var(--a1), var(--a2));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* A card that clips its content (overflow-hidden) would clip a ring drawn outside its padding box. */
+  .ring-grad.overflow-hidden::after {
+    inset: 0;
+  }
+
+  /* Small rounded square with the attention gradient (section headings, reason icons). */
+  .icon-grad {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--a1), var(--a2));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 6px 14px -8px var(--a2);
+  }
+
+  /* Header wash in a stage's colours (lead page, call mode): gradient top edge + soft corner glow. */
+  .stage-wash {
+    position: relative;
+    background:
+      radial-gradient(120% 110% at 0% 0%, var(--gs), transparent 55%),
+      radial-gradient(90% 90% at 100% 0%, color-mix(in srgb, var(--g2) 9%, transparent), transparent 60%),
+      #fff;
+  }
+  .stage-wash::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--g1), var(--g2));
+  }
+
+  /* Bento stat tile: gradient top edge and a soft wash in the corner. */
+  .tile {
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--color-line);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .tile::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--g1), var(--g2));
+  }
+  .tile::after {
+    content: '';
+    position: absolute;
+    right: -35%;
+    bottom: -70%;
+    width: 100%;
+    height: 140%;
+    background: radial-gradient(closest-side, var(--gs), transparent);
+    pointer-events: none;
+  }
+  .tile:hover {
+    box-shadow: var(--shadow-pop);
+    transform: translateY(-1px);
+  }
+
+  /* Midnight hero with auroras and a fading dot grid (Today, call mode, login). */
+  .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: #fff;
+    border-radius: 24px;
+    background:
+      radial-gradient(110% 90% at 0% 0%, rgba(99, 102, 241, 0.55) 0%, transparent 55%),
+      radial-gradient(80% 80% at 100% 0%, rgba(217, 70, 239, 0.36) 0%, transparent 55%),
+      radial-gradient(90% 90% at 85% 115%, rgba(6, 182, 212, 0.3) 0%, transparent 60%),
+      linear-gradient(150deg, #0c1029 0%, #17123f 48%, #0b1a3a 100%);
+    box-shadow: 0 28px 60px -30px rgba(67, 56, 202, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1.3px);
+    background-size: 16px 16px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 75% 0%, #000 10%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 70% at 75% 0%, #000 10%, transparent 75%);
+  }
+  .hero-blob {
+    position: absolute;
+    z-index: -1;
+    border-radius: 999px;
+    filter: blur(46px);
+    opacity: 0.55;
+    pointer-events: none;
+    animation: hero-drift 16s ease-in-out infinite alternate;
+  }
+  @keyframes hero-drift {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(36px, 18px, 0) scale(1.18);
+    }
+  }
+
+  /* Frosted tile on a dark hero. */
+  .glass {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+  }
+  a.glass:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  a.glass:active {
+    transform: scale(0.98);
+  }
+
+  .text-aurora {
+    background: linear-gradient(90deg, #c7d2fe 0%, #f5d0fe 45%, #fde68a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-grad {
+    background: linear-gradient(90deg, #4f46e5 0%, #c026d3 55%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A light sweep across a call-to-action every few seconds. */
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .btn-shine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 45%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.36), transparent);
+    transform: translateX(-130%) skewX(-18deg);
+    animation: btn-shine 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    pointer-events: none;
+  }
+  @keyframes btn-shine {
+    0% {
+      transform: translateX(-130%) skewX(-18deg);
+    }
+    55%,
+    100% {
+      transform: translateX(340%) skewX(-18deg);
+    }
+  }
+
+  /* Pulsing dot for "live" states (waiting on you). */
+  .pulse-dot {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--a1, #6366f1);
+  }
+  .pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: pulse-ring 1.8s ease-out infinite;
+  }
+  @keyframes pulse-ring {
+    from {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
   }
 
   a.link,

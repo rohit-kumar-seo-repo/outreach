@@ -14,7 +14,9 @@ import {
   StickyNote,
   XCircle,
 } from 'lucide-react';
-import { Avatar, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
+import { AttentionBadge, Avatar, IntentBadge, ReminderBadge, StageBadge } from '@/components/crm/LeadBits';
+import { FocusActions } from '@/components/crm/FocusActions';
+import { ATTENTION_META } from '@/lib/crm/attention';
 import { DealEditor, DeleteActivityButton, LeadActionBar, LogCallPanel, NoteComposer, ReminderPicker, StagePicker, StarButton } from '@/components/crm/LeadControls';
 import { present } from '@/lib/crm/present';
 import { one } from '@/lib/db';
@@ -141,7 +143,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <header className="card overflow-hidden">
-        <div className="bg-gradient-to-br from-white via-white to-slate-50 p-4 sm:p-5">
+        <div className={`stage-wash tint-${l.stage ?? 'none'} p-4 sm:p-5`}>
           <div className="flex items-start gap-3.5">
             <Avatar name={name} stage={l.stage} size={56} />
             <div className="min-w-0 flex-1">
@@ -149,6 +151,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               <p className="mt-0.5 text-[13px] text-ink-3">{[l.category, l.city, w.country].filter(Boolean).join(' · ') || '—'}</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <StageBadge stage={l.stage} />
+                <AttentionBadge attention={l.attention} label={l.attentionLabel} />
+                {l.attention === 'reply' && l.replyIntent !== 'other' && <IntentBadge intent={l.replyIntent} />}
                 <ReminderBadge label={l.reminderLabel} tone={l.reminderTone} />
                 <Link href={`/campaigns/${l.campaignSlug}`} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-2 hover:bg-slate-200">
                   {l.campaignName}
@@ -174,6 +178,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <LeadActionBar links={l.links} waHref={waHref} emailHref={emailHref} name={name} />
           </div>
         </div>
+        {l.attention && (
+          <div className={`attn-${l.attention} flex flex-col gap-2.5 border-t border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-fuchsia-50/60 to-amber-50/50 px-4 py-3 sm:flex-row sm:items-center sm:gap-3`}>
+            <span className="flex min-w-0 flex-1 items-start gap-2.5 text-[13px] text-ink">
+              <span className="pulse-dot mt-1.5 shrink-0" aria-hidden />
+              <span>
+                <strong className="font-semibold">{ATTENTION_META[l.attention].label}.</strong> {ATTENTION_META[l.attention].help}
+              </span>
+            </span>
+            <FocusActions leadId={l.id} attention={l.attention} tone="plain" />
+          </div>
+        )}
         {w.suppressed && (
           <div className="flex items-start gap-2 border-t border-red-200 bg-critical-50 px-4 py-2.5 text-[13px] text-ink">
             <ShieldAlert size={16} className="mt-0.5 shrink-0 text-critical" aria-hidden />
