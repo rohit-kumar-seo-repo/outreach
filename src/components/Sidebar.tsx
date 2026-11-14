@@ -5,17 +5,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
+  BarChart3,
   Bell,
   CalendarCheck,
   ChevronDown,
-  Download,
   FileSpreadsheet,
-  Gauge,
   Home,
   Inbox,
-  LineChart,
   LogOut,
-  Megaphone,
   Menu,
   MessageCircle,
   Phone,
@@ -27,22 +24,20 @@ import {
 } from 'lucide-react';
 import { logout } from '@/app/actions/auth';
 
-type Item = { href: string; label: string; icon: typeof Home };
+/** `also`: other paths that belong to the same menu item (a section with several pages). */
+type Item = { href: string; label: string; icon: typeof Home; also?: string[] };
 
+// The whole job in six places: what to do (Today, Leads, Call, the two inboxes) and what we got (Results).
 const WORK: Item[] = [
   { href: '/', label: 'Today', icon: Home },
   { href: '/leads', label: 'Leads', icon: Users },
   { href: '/call', label: 'Call mode', icon: Phone },
   { href: '/inbox', label: 'Email inbox', icon: Inbox },
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
+  { href: '/campaigns', label: 'Results', icon: BarChart3, also: ['/overview', '/sending', '/reports'] },
 ];
-const OUTREACH: Item[] = [
-  { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
-  { href: '/overview', label: 'Performance', icon: LineChart },
-  { href: '/sending', label: 'Sending volume', icon: Gauge },
-  { href: '/reports', label: 'Reports & exports', icon: Download },
-];
-const ADMIN: Item[] = [
+// Set-up and plumbing: rarely needed, so folded away.
+const MORE: Item[] = [
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/integrations', label: 'Integrations', icon: PlugZap },
   { href: '/spreadsheets', label: 'Spreadsheets', icon: FileSpreadsheet },
@@ -58,8 +53,12 @@ const TABS: Item[] = [
   { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
 ];
 
-function isActive(path: string, href: string) {
+function under(path: string, href: string) {
   return href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
+}
+
+function isActive(path: string, item: Item) {
+  return under(path, item.href) || (item.also ?? []).some((h) => under(path, h));
 }
 
 function Brand({ dark = false }: { dark?: boolean }) {
@@ -81,7 +80,7 @@ const PANEL_BG =
   'bg-[#0a0e1f] [background-image:radial-gradient(22rem_16rem_at_0%_0%,rgba(99,102,241,0.32),transparent_70%),radial-gradient(18rem_14rem_at_100%_18%,rgba(217,70,239,0.14),transparent_70%),radial-gradient(20rem_16rem_at_20%_100%,rgba(6,182,212,0.1),transparent_70%)]';
 
 function NavLink({ item, path, badge, onNavigate }: { item: Item; path: string; badge?: number; onNavigate?: () => void }) {
-  const active = isActive(path, item.href);
+  const active = isActive(path, item);
   const Icon = item.icon;
   return (
     <Link
@@ -114,7 +113,7 @@ function NavLink({ item, path, badge, onNavigate }: { item: Item; path: string; 
 }
 
 function Group({ title, items, path, attention, onNavigate, collapsible }: { title?: string; items: Item[]; path: string; attention: Record<string, number>; onNavigate?: () => void; collapsible?: boolean }) {
-  const hasActive = items.some((i) => isActive(path, i.href));
+  const hasActive = items.some((i) => isActive(path, i));
   const total = items.reduce((n, i) => n + (attention[i.href] ?? 0), 0);
   const [open, setOpen] = useState(!collapsible || hasActive);
   useEffect(() => {
@@ -163,8 +162,7 @@ export function Sidebar({ email, attention }: { email: string; attention: Record
   const nav = (onNavigate?: () => void) => (
     <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main">
       <Group items={WORK} path={path} attention={attention} onNavigate={onNavigate} />
-      <Group title="Outreach" items={OUTREACH} path={path} attention={attention} onNavigate={onNavigate} />
-      <Group title="Admin" items={ADMIN} path={path} attention={attention} onNavigate={onNavigate} collapsible />
+      <Group title="More" items={MORE} path={path} attention={attention} onNavigate={onNavigate} collapsible />
     </nav>
   );
   const footer = (
@@ -244,7 +242,7 @@ export function BottomNav({ attention }: { attention: Record<string, number> }) 
     >
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {TABS.map((t) => {
-          const active = isActive(path, t.href);
+          const active = isActive(path, t);
           const Icon = t.icon;
           const badge = attention[t.href] ?? 0;
           if (t.href === '/call') {

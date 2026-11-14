@@ -183,7 +183,15 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <span className="flex min-w-0 flex-1 items-start gap-2.5 text-[13px] text-ink">
               <span className="pulse-dot mt-1.5 shrink-0" aria-hidden />
               <span>
-                <strong className="font-semibold">{ATTENTION_META[l.attention].label}.</strong> {ATTENTION_META[l.attention].help}
+                <strong className="font-semibold">{ATTENTION_META[l.attention].label}.</strong> {l.next ? `Next: ${l.next.label.charAt(0).toLowerCase()}${l.next.label.slice(1)}.` : ATTENTION_META[l.attention].help}
+                {l.next && l.next.href !== `/leads/${l.id}` && (
+                  <>
+                    {' '}
+                    <Link href={l.next.href} className="link whitespace-nowrap font-medium">
+                      Open the conversation
+                    </Link>
+                  </>
+                )}
               </span>
             </span>
             <FocusActions leadId={l.id} attention={l.attention} tone="plain" />

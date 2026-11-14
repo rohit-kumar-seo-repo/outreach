@@ -1,6 +1,7 @@
 // Server-side display labels for lead cards (timezone-aware), so client components get plain strings.
 import { env } from '../env';
 import { localDate, relativeTime } from '../time';
+import { nextStep, type NextStep } from './nextstep';
 import type { LeadCard } from './queries';
 
 export type ReminderTone = 'overdue' | 'today' | 'soon' | 'later';
@@ -8,6 +9,8 @@ export type ReminderTone = 'overdue' | 'today' | 'soon' | 'later';
 export interface LeadCardView extends LeadCard {
   /** e.g. "Waiting 2 h" / "Quiet 6 days" for leads that need you (reminders use reminderLabel). */
   attentionLabel: string | null;
+  /** The one next step for a lead that needs you (null: nothing to do). */
+  next: NextStep | null;
   whenLabel: string | null;
   reminderLabel: string | null;
   reminderTone: ReminderTone | null;
@@ -57,6 +60,7 @@ export function present(c: LeadCard, now = new Date()): LeadCardView {
   return {
     ...c,
     attentionLabel: attentionLabel(c, now),
+    next: nextStep({ id: c.id, attention: c.attention, replyIntent: c.replyIntent, replyHref: c.replyHref, hasPhone: !!c.links.tel }),
     whenLabel: latest ? relativeTime(latest, now) : null,
     reminderLabel: r?.label ?? null,
     reminderTone: r?.tone ?? null,

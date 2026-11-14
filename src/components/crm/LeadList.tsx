@@ -1,8 +1,30 @@
 import Link from 'next/link';
-import { PhoneCall } from 'lucide-react';
+import { AlarmClock, ArrowRight, PhoneCall, Reply, Snowflake } from 'lucide-react';
 import type { LeadCardView } from '@/lib/crm/present';
 import { DismissableItem, FocusActions } from './FocusActions';
 import { AttentionBadge, Avatar, ChannelDot, ContactButtons, IntentBadge, ReminderBadge, StageBadge, StarMark } from './LeadBits';
+
+const NEXT_ICON = { reply: Reply, call: PhoneCall, followup: AlarmClock, checkin: Snowflake } as const;
+
+/** The one next step, as a tappable row (opens the conversation, or the lead page to call / follow up). */
+export function NextStepRow({ lead }: { lead: Pick<LeadCardView, 'next' | 'attention' | 'attentionLabel' | 'reminderLabel'> }) {
+  if (!lead.next || !lead.attention) return null;
+  const Icon = NEXT_ICON[lead.next.kind];
+  // How long it has waited, or (for a reminder) when it was due.
+  const sub = lead.attentionLabel ?? (lead.attention === 'due' ? lead.reminderLabel : null);
+  return (
+    <Link href={lead.next.href} className={`next-step attn-${lead.attention} pointer-events-auto`}>
+      <span className="next-step-icon">
+        <Icon size={14} aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block">{lead.next.label}</span>
+        {sub && <span className="mt-0.5 block text-[11.5px] font-medium text-ink-3">{sub}</span>}
+      </span>
+      <ArrowRight size={15} className="shrink-0 text-ink-3" aria-hidden />
+    </Link>
+  );
+}
 
 function subline(l: LeadCardView): string {
   return [l.category, l.city, l.campaignName].filter(Boolean).join(' · ');
@@ -17,11 +39,22 @@ export function LeadListItem({ lead, showStage = true, actions = false }: { lead
   const name = lead.name || lead.email || lead.links.phoneLabel || `Lead #${lead.id}`;
   // With Done / Later, the contact buttons move down beside them so the badges get the full width.
   const withActions = actions && !!lead.attention;
+  // WhatsApp and email open the conversation inside the app when there is one (right number, right mailbox).
   const contact = (
     <div className="pointer-events-auto">
-      <ContactButtons links={lead.links} name={name} />
+      <ContactButtons
+        links={lead.links}
+        name={name}
+        waHref={lead.replyChannel === 'whatsapp' ? lead.replyHref : null}
+        emailHref={lead.replyChannel === 'email' ? lead.replyHref : null}
+      />
     </div>
   );
+  // In the "needs you" lists the next-step row says it all: a "New" chip there is noise.
+  const stageChip = showStage && !(withActions && lead.stage === 'new');
+  // A due reminder's time already sits in the next-step row.
+  const reminderChip = !!lead.reminderLabel && !(withActions && lead.attention === 'due');
+  const hasChips = stageChip || reminderChip || !!lead.lastCallLabel;
   const cls = `card accent-bar tint-${lead.stage ?? 'none'} ${lead.attention ? `ring-grad attn-${lead.attention}` : ''} relative transition-shadow hover:shadow-[var(--shadow-pop)]`;
   const body = (
     <>
@@ -34,7 +67,7 @@ export function LeadListItem({ lead, showStage = true, actions = false }: { lead
               <span className="truncate text-[15px] font-semibold text-ink">{name}</span>
               <StarMark on={lead.starred} />
             </span>
-            {lead.whenLabel && <span className="ml-auto shrink-0 text-[11.5px] text-ink-3">{lead.whenLabel}</span>}
+            {lead.whenLabel && !(withActions && lead.attentionLabel) && <span className="ml-auto shrink-0 text-[11.5px] text-ink-3">{lead.whenLabel}</span>}
           </div>
           <div className="truncate text-[12.5px] text-ink-3">{subline(lead)}</div>
           {lead.replyText && (
@@ -43,21 +76,28 @@ export function LeadListItem({ lead, showStage = true, actions = false }: { lead
               <span className="line-clamp-2">&ldquo;{lead.replyText}&rdquo;</span>
             </p>
           )}
-          <div className="mt-2.5 flex items-center gap-2">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-              <AttentionBadge attention={lead.attention} label={lead.attentionLabel} />
-              {showStage && <StageBadge stage={lead.stage} />}
-              {(lead.stage === 'new' || !lead.stage || lead.attention === 'reply') && lead.replyIntent !== 'other' && <IntentBadge intent={lead.replyIntent} />}
-              <ReminderBadge label={lead.reminderLabel} tone={lead.reminderTone} />
-              {lead.lastCallLabel && (
-                <span className="inline-flex items-center gap-1 text-[11.5px] text-ink-3">
-                  <PhoneCall size={12} aria-hidden />
-                  {lead.lastCallLabel}
-                </span>
-              )}
+          {withActions && (
+            <div className="mt-2.5">
+              <NextStepRow lead={lead} />
             </div>
-            {!withActions && contact}
-          </div>
+          )}
+          {(!withActions || hasChips) && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                {!withActions && <AttentionBadge attention={lead.attention} label={lead.attentionLabel} />}
+                {stageChip && <StageBadge stage={lead.stage} />}
+                {!withActions && (lead.stage === 'new' || !lead.stage || lead.attention === 'reply') && lead.replyIntent !== 'other' && <IntentBadge intent={lead.replyIntent} />}
+                {reminderChip && <ReminderBadge label={lead.reminderLabel} tone={lead.reminderTone} />}
+                {lead.lastCallLabel && (
+                  <span className="inline-flex items-center gap-1 text-[11.5px] text-ink-3">
+                    <PhoneCall size={12} aria-hidden />
+                    {lead.lastCallLabel}
+                  </span>
+                )}
+              </div>
+              {!withActions && contact}
+            </div>
+          )}
         </div>
       </div>
       {/* Full card width (under the avatar too) so Done / Later and the contact buttons fit one row on a phone. */}

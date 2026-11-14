@@ -528,6 +528,93 @@ tr {
     }
   }
 
+  /* The one next step on a lead that needs you: a tappable row washed in the reason's colours. */
+  .next-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 7px 10px 7px 8px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--color-ink);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--a1) 12%, #fff), color-mix(in srgb, var(--a2) 9%, #fff));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a1) 24%, transparent);
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+  }
+  .next-step:hover {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a1) 45%, transparent), 0 6px 16px -10px var(--a2);
+  }
+  .next-step:active {
+    transform: scale(0.985);
+  }
+  .next-step-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--a1), var(--a2));
+  }
+
+  /* Two- or three-way switch (To do / What we got, period pickers). */
+  .seg {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid var(--color-line);
+    box-shadow: var(--shadow-card);
+  }
+  .seg > a {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-ink-2);
+    white-space: nowrap;
+  }
+  .seg > a:hover {
+    background: #f4f5fa;
+  }
+  .seg > a[aria-current='page'] {
+    color: #fff;
+    background: linear-gradient(135deg, #111827 0%, #312e81 100%);
+    box-shadow: 0 8px 18px -10px rgba(49, 46, 129, 0.8);
+  }
+  .seg-sm > a {
+    min-height: 32px;
+    padding: 4px 12px;
+    font-size: 12.5px;
+    border-radius: 10px;
+  }
+  .seg-sm {
+    border-radius: 13px;
+  }
+
+  /* Progress ring (done today) drawn on the dark hero. */
+  .ring-progress {
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    animation: ring-fill 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes ring-fill {
+    from {
+      stroke-dashoffset: var(--ring-full);
+    }
+  }
+
   a.link,
   button.link {
     color: var(--color-brand);

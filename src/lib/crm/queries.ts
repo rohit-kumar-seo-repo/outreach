@@ -34,6 +34,8 @@ export interface LeadCard {
   replyChannel: 'email' | 'whatsapp' | null;
   replyText: string | null;
   replyIntent: string | null;
+  /** The in-app conversation their latest reply is in (email thread or WhatsApp chat). */
+  replyHref: string | null;
   /** Why this lead needs you now (null: it does not). See src/lib/crm/attention.ts. */
   attention: Attention | null;
   needsReplyAt: Date | null;
@@ -42,7 +44,14 @@ export interface LeadCard {
   links: ContactLinks;
 }
 
-type CardRow = Omit<LeadCard, 'links' | 'replyText' | 'attention'> & { phoneNorm: string | null; replyText: string | null; attention: string | null };
+type CardRow = Omit<LeadCard, 'links' | 'replyText' | 'attention' | 'replyHref'> & {
+  phoneNorm: string | null;
+  replyText: string | null;
+  attention: string | null;
+  replyThread: string | null;
+  replySession: string | null;
+  replyChat: string | null;
+};
 
 // A function, not a constant: the attention SQL reads the app timezone at request time.
 const cardCols = () => `l.id, l.name, l.email_norm as email, l.phone, l.phone_norm as "phoneNorm", l.wa_chat_id as "waChatId", l.city, l.category,
@@ -50,17 +59,19 @@ const cardCols = () => `l.id, l.name, l.email_norm as email, l.phone, l.phone_no
   ${STAGE_SQL} as stage, l.starred, l.manual_followup_at as "reminderAt", l.last_reply_at as "lastReplyAt",
   l.last_contacted_at as "lastContactedAt", l.last_activity_at as "lastActivityAt", l.last_call_at as "lastCallAt",
   l.last_call_outcome as "lastCallOutcome", l.call_count as "callCount", l.deal_value::float8 as "dealValue", l.deal_currency as "dealCurrency",
-  r.ch as "replyChannel", r.body as "replyText", l.reply_intent as "replyIntent",
+  r.ch as "replyChannel", r.body as "replyText", r.thread as "replyThread", r.session as "replySession", r.chat as "replyChat",
+  l.reply_intent as "replyIntent",
   ${attentionSql()} as attention, l.needs_reply_at as "needsReplyAt",
   nullif(greatest(l.last_reply_at, ${LAST_TOUCH_SQL}), '-infinity'::timestamptz) as "lastTouchAt"`;
 
 // Their latest reply on either channel (email body is cleaned in TS; it may still hold quoted history).
 const REPLY_JOIN = `left join lateral (
     select * from (
-      (select m.sent_at as at, 'email'::text as ch, left(coalesce(nullif(btrim(m.body_text), ''), m.subject), 1500) as body
+      (select m.sent_at as at, 'email'::text as ch, left(coalesce(nullif(btrim(m.body_text), ''), m.subject), 1500) as body,
+              m.thread_key as thread, null::text as session, null::text as chat
          from mail_messages m where m.lead_id = l.id and m.is_outreach_reply order by m.sent_at desc nulls last limit 1)
       union all
-      (select w.sent_at, 'whatsapp'::text, left(coalesce(w.body, case when w.has_media then '(media)' end), 1500)
+      (select w.sent_at, 'whatsapp'::text, left(coalesce(w.body, case when w.has_media then '(media)' end), 1500), null::text, w.session, w.chat_id
          from wa_messages w where w.lead_id = l.id and not w.from_me and not w.is_auto order by w.sent_at desc limit 1)
     ) x order by at desc nulls last limit 1) r on true`;
 
@@ -71,10 +82,17 @@ function dialCodeFor(sourceKey: string | null): string | null {
   return registry().sources.find((s) => s.key === sourceKey)?.dialCode ?? null;
 }
 
+function replyHrefOf(r: Pick<CardRow, 'replyChannel' | 'replyThread' | 'replySession' | 'replyChat'>): string | null {
+  if (r.replyChannel === 'whatsapp' && r.replyChat && r.replySession) return `/whatsapp/inbox?chat=${encodeURIComponent(r.replyChat)}&session=${encodeURIComponent(r.replySession)}`;
+  if (r.replyChannel === 'email' && r.replyThread) return `/inbox?thread=${encodeURIComponent(r.replyThread)}`;
+  return null;
+}
+
 export function toCard(r: CardRow): LeadCard {
-  const { phoneNorm, ...rest } = r;
+  const { phoneNorm, replyThread: _t, replySession: _s, replyChat: _c, ...rest } = r;
   return {
     ...rest,
+    replyHref: replyHrefOf(r),
     stage: isStage(r.stage) ? r.stage : null,
     attention: isAttention(r.attention) ? r.attention : null,
     replyText: r.replyText ? replySnippet(r.replyText) : null,
@@ -241,7 +259,8 @@ export interface TodayData {
   focusCounts: FocusCounts;
   counts: Record<Stage, number>;
   callsToday: number;
-  repliesHandledToday: number;
+  /** Leads you dealt with today: answered, called, or marked done. */
+  doneToday: number;
   wonThisMonth: { n: number; value: number | null; currency: string | null };
   callQueue: number;
   lastSyncAt: Date | null;
@@ -253,10 +272,15 @@ export async function todayData(): Promise<TodayData> {
     listPipeline({ view: 'focus', limit: 90 }),
     focusCounts(),
     stageCounts({}),
-    one<{ calls: number; handled: number; won: number; won_value: number | null; currency: string | null; last_sync: Date | null; alerts: number }>(
+    one<{ calls: number; done: number; won: number; won_value: number | null; currency: string | null; last_sync: Date | null; alerts: number }>(
       `select (select count(*)::int from lead_activities where kind = 'call' and (occurred_at at time zone $1)::date = (now() at time zone $1)::date) as calls,
-              (select count(*)::int from leads l where (l.needs_reply_at at time zone $1)::date = (now() at time zone $1)::date
-                  and l.needs_reply_at <= ${LAST_TOUCH_SQL}) as handled,
+              -- Done today: marked done, called, or answered (an outbound message after a reply that needed you;
+              -- automated campaign sends to people who never replied do not count).
+              (select count(*)::int from leads l
+                where (l.attention_cleared_at at time zone $1)::date = (now() at time zone $1)::date
+                   or (l.last_call_at at time zone $1)::date = (now() at time zone $1)::date
+                   or (l.needs_reply_at is not null and l.last_outbound_at > l.needs_reply_at
+                       and (l.last_outbound_at at time zone $1)::date = (now() at time zone $1)::date)) as done,
               (select count(*)::int from leads where stage = 'won' and date_trunc('month', stage_changed_at at time zone $1) = date_trunc('month', now() at time zone $1)) as won,
               (select sum(deal_value)::float8 from leads where stage = 'won' and date_trunc('month', stage_changed_at at time zone $1) = date_trunc('month', now() at time zone $1)) as won_value,
               (select mode() within group (order by deal_currency) from leads where stage = 'won' and deal_currency is not null) as currency,
@@ -274,7 +298,7 @@ export async function todayData(): Promise<TodayData> {
     focusCounts: fc,
     counts,
     callsToday: misc?.calls ?? 0,
-    repliesHandledToday: misc?.handled ?? 0,
+    doneToday: misc?.done ?? 0,
     wonThisMonth: { n: misc?.won ?? 0, value: misc?.won_value ?? null, currency: misc?.currency ?? null },
     callQueue: queue.length,
     lastSyncAt: misc?.last_sync ?? null,

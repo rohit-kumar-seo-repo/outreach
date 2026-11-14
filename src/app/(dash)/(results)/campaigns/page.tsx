@@ -1,10 +1,13 @@
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
+import { Scoreboard } from '@/components/crm/Scoreboard';
 import { CampaignStatus } from '@/components/status';
-import { Card, EmptyState, fmt, Notice, PageHeader, RateCell, Tip } from '@/components/ui';
+import { Card, EmptyState, fmt, Notice, RateCell, Tip } from '@/components/ui';
 import { campaignStats } from '@/lib/metrics/campaigns';
+import { parseRange, scoreboard } from '@/lib/metrics/scoreboard';
 import { addDays, formatDate, localDate } from '@/lib/time';
 
-export const metadata = { title: 'Campaigns' };
+export const metadata = { title: 'Results' };
 
 const PERIODS = [
   { key: 'all', label: 'All time' },
@@ -16,7 +19,8 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const period = PERIODS.some((p) => p.key === sp.period) ? sp.period! : 'all';
   const today = localDate();
-  const stats = await campaignStats(period === 'all' ? {} : { from: addDays(today, -(Number(period) - 1)), to: today });
+  const range = parseRange(sp.range);
+  const [stats, board] = await Promise.all([campaignStats(period === 'all' ? {} : { from: addDays(today, -(Number(period) - 1)), to: today }), scoreboard(range)]);
   const email = stats.filter((s) => s.channel === 'email');
   const wa = stats.filter((s) => s.channel === 'whatsapp');
   const best = [...stats].filter((s) => s.contacted >= 10).sort((a, b) => b.repliedLeads / b.contacted - a.repliedLeads / a.contacted)[0];
@@ -101,59 +105,58 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader
-        title="Campaigns"
-        subtitle="Compare campaigns on meetings, wins and replies, never opens. Every rate uses the same denominator: unique leads contacted."
-        actions={
-          <div className="flex rounded-lg border border-line-strong bg-white p-0.5 text-xs">
-            {PERIODS.map((p) => (
-              <Link key={p.key} href={p.key === 'all' ? '/campaigns' : `/campaigns?period=${p.key}`} className={`rounded-md px-2.5 py-1.5 ${period === p.key ? 'bg-brand text-white' : 'text-ink-2 hover:bg-slate-50'}`}>
-                {p.label}
-              </Link>
-            ))}
+      <Scoreboard board={board} hrefFor={(r) => (r === '7d' ? '/campaigns' : `/campaigns?range=${r}`)} showAll detail />
+
+      {/* The full comparison (rates, follow-ups, bounces) stays one tap away. */}
+      <details className="card group mt-6" open={!!sp.period}>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="block text-[14.5px] font-semibold text-ink">Compare campaigns in detail</span>
+            <span className="block text-[12.5px] text-ink-3">Reply, meeting and bounce rates per campaign. Every rate uses the same base: unique leads contacted.</span>
+          </span>
+          <ChevronDown size={18} className="shrink-0 text-ink-3 transition-transform group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="space-y-4 border-t border-line p-3 sm:p-4">
+          <div className="no-scrollbar -mx-1 overflow-x-auto px-1">
+            <div className="inline-flex rounded-lg border border-line-strong bg-white p-0.5 text-xs">
+              {PERIODS.map((p) => (
+                <Link key={p.key} href={`/campaigns?period=${p.key}`} className={`whitespace-nowrap rounded-md px-2.5 py-1.5 ${period === p.key ? 'bg-brand text-white' : 'text-ink-2 hover:bg-slate-50'}`}>
+                  {p.label}
+                </Link>
+              ))}
+            </div>
           </div>
-        }
-      />
-      {period !== 'all' && (
-        <div className="mb-4">
-          <Notice>
-            Cohort view: only leads whose first accepted send falls in the period are counted, and their replies at any time afterwards. Sends with no reliable date
-            (sheet-status only) are excluded here but included in &ldquo;All time&rdquo;.
-          </Notice>
-        </div>
-      )}
-      {bestResults ? (
-        <div className="mb-4">
-          <Notice tone="good" title="Best business results so far">
-            {bestResults.name}: {bestResults.wonLeads} won, {bestResults.meetingLeads} meeting(s) booked from {bestResults.contacted} contacted leads.
-            {best && best.slug !== bestResults.slug ? ` Highest reply rate: ${best.name} (${best.repliedLeads} of ${best.contacted}).` : ''}
-          </Notice>
-        </div>
-      ) : (
-        best && (
-          <div className="mb-4">
-            <Notice tone="good" title="Highest reply rate (campaigns with ≥ 10 contacted leads)">
-              {best.name}: {best.repliedLeads} of {best.contacted} contacted leads replied.
+          {period !== 'all' && (
+            <Notice>
+              Cohort view: only leads whose first accepted send falls in the period are counted, and their replies at any time afterwards. Sends with no reliable date
+              (sheet-status only) are excluded here but included in &ldquo;All time&rdquo;.
             </Notice>
-          </div>
-        )
-      )}
-      {!anyOutcomes && (
-        <div className="mb-4">
-          <Notice title="Add business results">
-            Replies show interest, not business. Record Qualified lead, Meeting booked, Won or Lost on a lead&rsquo;s page, and campaigns are compared on meetings and wins
-            here.
-          </Notice>
+          )}
+          {bestResults ? (
+            <Notice tone="good" title="Best business results so far">
+              {bestResults.name}: {bestResults.wonLeads} won, {bestResults.meetingLeads} meeting(s) booked from {bestResults.contacted} contacted leads.
+              {best && best.slug !== bestResults.slug ? ` Highest reply rate: ${best.name} (${best.repliedLeads} of ${best.contacted}).` : ''}
+            </Notice>
+          ) : (
+            best && (
+              <Notice tone="good" title="Highest reply rate (campaigns with ≥ 10 contacted leads)">
+                {best.name}: {best.repliedLeads} of {best.contacted} contacted leads replied.
+              </Notice>
+            )
+          )}
+          {!anyOutcomes && (
+            <Notice title="Add business results">
+              Replies show interest, not business. Move a lead to Meeting or Won on its page, and campaigns are compared on meetings and wins here.
+            </Notice>
+          )}
+          <Card title="Email campaigns" subtitle="Open tracking is not used; opens are not a success signal." pad={false}>
+            {email.length ? table(email) : <EmptyState title="No email campaigns configured" />}
+          </Card>
+          <Card title="WhatsApp campaigns" subtitle="Replies are inbound WhatsApp messages from the contacted number after the first outreach message." pad={false}>
+            {wa.length ? table(wa) : <EmptyState title="No WhatsApp campaigns configured" />}
+          </Card>
         </div>
-      )}
-      <div className="space-y-5">
-        <Card title="Email campaigns" subtitle="Open tracking is not used; opens are not a success signal." pad={false}>
-          {email.length ? table(email) : <EmptyState title="No email campaigns configured" />}
-        </Card>
-        <Card title="WhatsApp campaigns" subtitle="Replies are inbound WhatsApp messages from the contacted number after the first outreach message." pad={false}>
-          {wa.length ? table(wa) : <EmptyState title="No WhatsApp campaigns configured" />}
-        </Card>
-      </div>
+      </details>
     </>
   );
 }

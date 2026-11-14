@@ -258,6 +258,24 @@ Today, the Leads → **Needs you** tab and the Today badge show only leads that 
 
 **Done** (on a card, the lead page, or Done in the email / WhatsApp inbox) hides the lead until something new happens; it completes a reminder that is due and moves a lead still in New to Contacted. **Later** sets a reminder (3 hours, tomorrow, 3 days, next week). Today also says what was kept out of the way: replies in the last 30 days that were only a hi, thanks, auto-reply or no; open leads you already answered (waiting on them); and leads parked behind a later reminder.
 
+## What we got (scoreboard)
+
+Today → **What we got** and Results → Sources show one row per outreach source (campaign) for Today, 7 days or 30 days (calendar days in the dashboard timezone, ending today). Counts are by when the thing happened, not by cohort (`src/lib/metrics/scoreboard.ts`):
+
+| Number | Meaning |
+|---|---|
+| Sent | Messages accepted in the period (first messages and follow-ups), each counted once. "New people" is first messages only. Sends with no reliable date are left out |
+| Replies | People who replied in the period. Auto-replies are not counted |
+| Interested | Of those, people whose reply needs you: interested, a question, wants a call, later, or anything substantive (see Reply types). A "no", an unsubscribe, a greeting or a thanks is a reply but not interested |
+| Meetings | Leads moved to Meeting in the period (in the dashboard), or marked booked in the sheet's own stage column (dated by the reply that led to it) |
+| Won | Leads won in the period that are still won, with the deal value when one currency applies |
+
+A source's status: **Sending** (sent something in the last 3 days), **Paused** (switched off in the dashboard or in n8n), **Not sending** (leads are still waiting for a first message but nothing went out for 3+ days), **List finished** (everyone on its list was contacted), **Not started**. Today's **Outreach check** lists the sources that are Not sending, and lists that finished in the last 14 days. "N need you" on a row is the Needs you count for that source, now.
+
+Sources are ordered by results: won, then meetings, interested, replies, sent. The detailed comparison below it keeps its cohort rates (see Campaign metrics).
+
+The ring on Today counts **done today**: leads you marked Done, called, or answered today (a message from you after a reply that needed you), out of those plus everything still on the To do list.
+
 ## Spreadsheet capacity
 
 For each source:

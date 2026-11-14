@@ -1,10 +1,10 @@
 /** Server component: the active tab is decided client-side by usePathname in TabNav so this
  *  layout itself needs no request-time data. */
 import { MessageCircle } from 'lucide-react';
-import { TabNav } from './TabNav';
+import { TabNav } from '@/components/TabNav';
 
 const TABS = [
-  { href: '/whatsapp', label: 'Overview' },
+  { href: '/whatsapp', label: 'Overview', exact: true },
   { href: '/whatsapp/inbox', label: 'Inbox' },
   { href: '/whatsapp/campaigns', label: 'Campaigns' },
   { href: '/whatsapp/templates', label: 'Templates' },
@@ -22,7 +22,7 @@ export default function WhatsAppLayout({ children }: { children: React.ReactNode
           </span>
           WhatsApp
         </h1>
-        <TabNav tabs={TABS} />
+        <TabNav tabs={TABS} label="WhatsApp sections" tone="whatsapp" />
       </div>
       {children}
     </div>
