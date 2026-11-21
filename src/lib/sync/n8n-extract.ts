@@ -208,7 +208,9 @@ export function extractFromExecution(exec: N8nExecution, wf: WorkflowDef): Extra
   const reg = registry();
   const campaignSource = wf.campaign.fromSource ? reg.sources.find((s) => s.key === wf.campaign.fromSource) : null;
   const leadSourceKey = wf.campaign.source ?? wf.campaign.fromSource ?? null;
-  const channel = reg.campaigns.find((c) => c.slug === wf.campaign.slug)?.channel ?? (wf.sendNodes[0]?.provider === 'waha' ? 'whatsapp' : 'email');
+  const regChannel = reg.campaigns.find((c) => c.slug === wf.campaign.slug)?.channel;
+  // Instagram campaigns push to /api/ingest/instagram and never come through send extraction
+  const channel: 'email' | 'whatsapp' = regChannel === 'email' || regChannel === 'whatsapp' ? regChannel : wf.sendNodes[0]?.provider === 'waha' ? 'whatsapp' : 'email';
 
   for (const node of wf.sendNodes) {
     const runs = runData[node.node];

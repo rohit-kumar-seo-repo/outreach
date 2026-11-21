@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
@@ -55,6 +56,8 @@ const ICON: Record<TimelineItem['kind'], { icon: typeof Phone; cls: string }> = 
   our_reply: { icon: Reply, cls: 'bg-brand-50 text-brand ring-indigo-200' },
   wa_in: { icon: MessageCircle, cls: 'bg-green-50 text-green-700 ring-green-200' },
   wa_out: { icon: MessageCircle, cls: 'bg-slate-50 text-ink-2 ring-slate-200' },
+  ig_in: { icon: MessageCircle, cls: 'bg-pink-50 text-pink-700 ring-pink-200' },
+  ig_out: { icon: MessageCircle, cls: 'bg-slate-50 text-ink-2 ring-slate-200' },
 };
 
 function titleFor(t: TimelineItem): string {
@@ -71,7 +74,7 @@ function Timeline({ items }: { items: TimelineItem[] }) {
     <ol className="relative">
       {items.map((t, i) => {
         const { icon: Icon, cls } = ICON[t.kind];
-        const inbound = t.kind === 'reply' || t.kind === 'wa_in';
+        const inbound = t.kind === 'reply' || t.kind === 'wa_in' || t.kind === 'ig_in';
         const showBody = t.body && t.kind !== 'reminder' && t.kind !== 'stage';
         return (
           <li key={t.key} className="relative flex gap-3 pb-5 last:pb-0">
@@ -174,6 +177,38 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               )}
             </div>
           )}
+          {(() => {
+            // Instagram leads: where they came from and what they told the DM bot (filled by /api/ingest/instagram)
+            const ig = (w.raw as { instagram?: { page?: string; reel_keyword?: string; first_comment?: string; answers?: Record<string, string | undefined> | null } }).instagram;
+            if (!ig) return null;
+            const a = ig.answers ?? {};
+            const rows: [string, string | undefined][] = [
+              ['Came from', `@${ig.page ?? 'instagram'}${ig.reel_keyword ? ` · reel keyword ${ig.reel_keyword}` : ''}`],
+              ['Their comment', ig.first_comment],
+              ['Business + city', a.business],
+              ['Biggest problem', a.problem],
+              ['Enquiries a month', a.volume],
+              ['Call back', a.phone],
+            ];
+            const user = l.name?.replace(/^@/, '');
+            return (
+              <div className="mt-3 rounded-xl bg-white/70 p-3 text-[13px] ring-1 ring-pink-100">
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                  {rows.filter(([, v]) => v).map(([k, v]) => (
+                    <React.Fragment key={k}>
+                      <dt className="text-ink-3">{k}</dt>
+                      <dd className="text-ink [overflow-wrap:anywhere]">{v}</dd>
+                    </React.Fragment>
+                  ))}
+                </dl>
+                {user && (
+                  <a href={`https://ig.me/m/${encodeURIComponent(user)}`} target="_blank" rel="noreferrer" className="mt-2 inline-block font-medium text-pink-700 hover:underline">
+                    Open the chat in Instagram
+                  </a>
+                )}
+              </div>
+            );
+          })()}
           <div className="mt-4">
             <LeadActionBar links={l.links} waHref={waHref} emailHref={emailHref} name={name} />
           </div>

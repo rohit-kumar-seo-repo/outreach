@@ -107,7 +107,7 @@ const source = z.object({
 const campaign = z.object({
   slug: z.string(),
   name: z.string(),
-  channel: z.enum(['email', 'whatsapp']),
+  channel: z.enum(['email', 'whatsapp', 'instagram']),
   brand: z.string(),
   description: z.string().optional(),
   workflowIds: z.array(z.string()).default([]),

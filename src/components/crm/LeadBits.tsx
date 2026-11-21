@@ -117,7 +117,8 @@ export function ContactButtons({
   );
 }
 
-export function ChannelDot({ channel }: { channel: 'email' | 'whatsapp' | null }) {
+export function ChannelDot({ channel }: { channel: 'email' | 'whatsapp' | 'instagram' | null }) {
+  if (channel === 'instagram') return <MessageCircle size={13} className="mt-0.5 shrink-0 text-pink-600" aria-label="Instagram" />;
   if (channel === 'whatsapp') return <MessageCircle size={13} className="mt-0.5 shrink-0 text-green-600" aria-label="WhatsApp" />;
   if (channel === 'email') return <Mail size={13} className="mt-0.5 shrink-0 text-brand" aria-label="Email" />;
   return null;

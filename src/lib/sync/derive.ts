@@ -86,10 +86,11 @@ export async function deriveLeads(): Promise<void> {
          select lead_id, max(sent_at) as last_reply,
                 (array_agg(sentiment order by sent_at desc) filter (where sentiment is not null))[1] as sentiment
            from wa_messages where not from_me and not is_auto and lead_id is not null group by lead_id),
+       ig as (select lead_id, max(sent_at) as last_reply from ig_messages where not from_me and lead_id is not null group by lead_id),
        bo as (select lead_id, min(occurred_at) as at from bounces where lead_id is not null and bounce_type <> 'soft' group by lead_id),
        vals as (
          select l.id,
-                greatest(em.last_reply, wa.last_reply) as last_reply,
+                greatest(em.last_reply, wa.last_reply, ig.last_reply) as last_reply,
                 -- Whichever channel replied most recently decides the sentiment (a lead can reply by
                 -- both email and WhatsApp; the newer classification wins, matching last_reply_at).
                 case when wa.last_reply is not null and (em.last_reply is null or wa.last_reply >= em.last_reply) then coalesce(wa.sentiment, em.sentiment)
@@ -99,6 +100,7 @@ export async function deriveLeads(): Promise<void> {
            from leads l
            left join em on em.lead_id = l.id
            left join wa on wa.lead_id = l.id
+           left join ig on ig.lead_id = l.id
            left join bo on bo.lead_id = l.id
            left join lateral (
              select reason from suppressions s
@@ -156,13 +158,19 @@ export async function deriveLeads(): Promise<void> {
             where m.is_outreach_reply and m.lead_id is not null and ${emailIntentSql('m')} in ${NEEDS_YOU_SQL}
            union all
            select w.lead_id, w.sent_at from wa_messages w
-            where not w.from_me and w.lead_id is not null and ${waIntentSql('w')} in ${NEEDS_YOU_SQL}) x
+            where not w.from_me and w.lead_id is not null and ${waIntentSql('w')} in ${NEEDS_YOU_SQL}
+           union all
+           -- Instagram: the DM bot marks the message where the lead asked for a call back / WhatsApp
+           select g.lead_id, g.sent_at from ig_messages g where g.needs_you and g.lead_id is not null) x
           group by lead_id),
        ob as (
          select lead_id, max(at) as at from (
            select w.lead_id, w.sent_at as at from wa_messages w where w.from_me and w.lead_id is not null
            union all
-           select r.lead_id, coalesce(r.sent_at, r.created_at) from wa_replies r where r.lead_id is not null and r.status in ('sent', 'unknown')) y
+           select r.lead_id, coalesce(r.sent_at, r.created_at) from wa_replies r where r.lead_id is not null and r.status in ('sent', 'unknown')
+           union all
+           -- only messages a person typed count as handling it; the bot's own answers don't
+           select g.lead_id, g.sent_at from ig_messages g where g.from_me and g.lead_id is not null and g.stage = 'manual') y
           group by lead_id)
        update leads l set needs_reply_at = x.nr, last_outbound_at = x.ob
          from (select l2.id, nr.at as nr, greatest(ob.at, l2.last_response_at) as ob

@@ -29,7 +29,7 @@ async function main() {
   const now = Date.now();
   const cities = ['Sample City A', 'Sample City B', 'Sample City C'];
 
-  for (const camp of reg.campaigns) {
+  for (const camp of reg.campaigns.filter((c) => c.channel !== 'instagram')) {
     await q(`update campaigns set status = $2 where slug = $1`, [camp.slug, camp.slug === 'dubai-clinics-batch2' || camp.slug === 'aesthetic-clinics-rkd' ? 'paused' : 'active']);
   }
   const senders: Record<string, string[]> = {};
@@ -59,6 +59,7 @@ async function main() {
   for (const src of reg.sources) {
     const slug = typeof src.campaign === 'string' ? src.campaign : src.campaign.default;
     const camp = reg.campaigns.find((c) => c.slug === slug)!;
+    if (camp.channel === 'instagram') continue;
     const source = (await q<{ id: number }>(`select id from sources where key = $1`, [src.key]))[0];
     const n = sizes[slug] ?? 30;
     await q(`update sources set last_sync_at = now(), last_success_at = now() - interval '4 minutes', last_status = 'ok', row_count = $2, columns = $3 where id = $1`, [

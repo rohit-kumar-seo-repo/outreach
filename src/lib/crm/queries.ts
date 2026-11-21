@@ -31,7 +31,7 @@ export interface LeadCard {
   callCount: number;
   dealValue: number | null;
   dealCurrency: string | null;
-  replyChannel: 'email' | 'whatsapp' | null;
+  replyChannel: 'email' | 'whatsapp' | 'instagram' | null;
   replyText: string | null;
   replyIntent: string | null;
   /** The in-app conversation their latest reply is in (email thread or WhatsApp chat). */
@@ -73,6 +73,9 @@ const REPLY_JOIN = `left join lateral (
       union all
       (select w.sent_at, 'whatsapp'::text, left(coalesce(w.body, case when w.has_media then '(media)' end), 1500), null::text, w.session, w.chat_id
          from wa_messages w where w.lead_id = l.id and not w.from_me and not w.is_auto order by w.sent_at desc limit 1)
+      union all
+      (select g.sent_at, 'instagram'::text, left(g.body, 1500), null::text, g.page, g.username
+         from ig_messages g where g.lead_id = l.id and not g.from_me order by g.sent_at desc limit 1)
     ) x order by at desc nulls last limit 1) r on true`;
 
 const FROM = `from leads l join campaigns c on c.id = l.campaign_id left join sources s on s.id = l.source_id`;
@@ -85,6 +88,8 @@ function dialCodeFor(sourceKey: string | null): string | null {
 function replyHrefOf(r: Pick<CardRow, 'replyChannel' | 'replyThread' | 'replySession' | 'replyChat'>): string | null {
   if (r.replyChannel === 'whatsapp' && r.replyChat && r.replySession) return `/whatsapp/inbox?chat=${encodeURIComponent(r.replyChat)}&session=${encodeURIComponent(r.replySession)}`;
   if (r.replyChannel === 'email' && r.replyThread) return `/inbox?thread=${encodeURIComponent(r.replyThread)}`;
+  // Instagram: open the DM thread in the Instagram app (ig.me works on phone and web)
+  if (r.replyChannel === 'instagram' && r.replyChat) return `https://ig.me/m/${encodeURIComponent(r.replyChat)}`;
   return null;
 }
 
@@ -348,7 +353,7 @@ export async function cardsByIds(ids: number[]): Promise<LeadCard[]> {
 export interface TimelineItem {
   key: string;
   at: Date | null;
-  kind: 'call' | 'note' | 'stage' | 'reminder' | 'sent' | 'send_failed' | 'reply' | 'our_reply' | 'wa_in' | 'wa_out';
+  kind: 'call' | 'note' | 'stage' | 'reminder' | 'sent' | 'send_failed' | 'reply' | 'our_reply' | 'wa_in' | 'wa_out' | 'ig_in' | 'ig_out';
   title: string;
   body: string | null;
   meta: string | null;
@@ -427,7 +432,7 @@ export async function leadWorkspace(id: number): Promise<LeadWorkspace | null> {
     return s || null;
   };
 
-  const [activities, sends, mails, was, others] = await Promise.all([
+  const [activities, sends, mails, was, others, igs] = await Promise.all([
     q<{ id: number; kind: string; outcome: string | null; body: string | null; occurredAt: Date; createdBy: string | null }>(
       `select id, kind, outcome, body, occurred_at as "occurredAt", created_by as "createdBy" from lead_activities where lead_id = $1 order by occurred_at desc limit 200`,
       [id],
@@ -455,6 +460,11 @@ export async function leadWorkspace(id: number): Promise<LeadWorkspace | null> {
       `select l.id, c.name as "campaignName", ${STAGE_SQL} as stage from leads l join campaigns c on c.id = l.campaign_id
         where l.id <> $1 and ((l.email_norm is not null and l.email_norm = $2) or (l.wa_chat_id is not null and l.wa_chat_id = $3)) order by l.id`,
       [id, row.email, row.waChatId],
+    ),
+    q<{ id: number; fromMe: boolean; kind: string; body: string | null; sentAt: Date; page: string; username: string; stage: string | null; reelKeyword: string | null }>(
+      `select id, from_me as "fromMe", kind, body, sent_at as "sentAt", page, username, stage, reel_keyword as "reelKeyword"
+         from ig_messages where lead_id = $1 order by sent_at desc limit 200`,
+      [id],
     ),
   ]);
 
@@ -500,6 +510,21 @@ export async function leadWorkspace(id: number): Promise<LeadWorkspace | null> {
       body: m.bodyText ? replySnippet(m.bodyText, 600) : m.subject,
       meta: m.subject,
       href: m.threadKey ? `/inbox?thread=${encodeURIComponent(m.threadKey)}` : null,
+      outcome: null,
+      activityId: null,
+    });
+  }
+  for (const g of igs) {
+    const title = g.kind === 'comment' ? (g.fromMe ? 'Instagram comment reply' : `Commented on a reel${g.reelKeyword ? ` (${g.reelKeyword})` : ''}`)
+      : g.kind === 'comment_reply' ? 'Public reply under their comment' : g.fromMe ? (g.stage === 'manual' ? 'You replied on Instagram' : 'Instagram DM sent (bot)') : 'Replied on Instagram';
+    timeline.push({
+      key: `g${g.id}`,
+      at: g.sentAt,
+      kind: g.fromMe ? 'ig_out' : 'ig_in',
+      title,
+      body: g.body,
+      meta: `@${g.page}${g.stage && g.stage !== 'manual' ? ` · ${g.stage}` : ''}`,
+      href: `https://ig.me/m/${encodeURIComponent(g.username)}`,
       outcome: null,
       activityId: null,
     });

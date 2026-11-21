@@ -32,6 +32,7 @@ export async function syncRegistry(): Promise<void> {
       ['n8n:workflows', 'n8n_workflow', 'n8n workflow scan (untracked senders)'],
       ['waha', 'waha', 'WhatsApp (WAHA)'],
       ['ingest:push', 'ingest', 'Push ingest endpoint (/api/ingest/n8n)'],
+      ['ingest:instagram', 'ingest', 'Instagram comment + DM bots (/api/ingest/instagram)'],
     ];
     for (const [key, kind, name] of fixed) {
       await q(

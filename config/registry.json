@@ -243,7 +243,9 @@
       ],
       "followup": {
         "mode": "days_after_last",
-        "cadenceDays": [1],
+        "cadenceDays": [
+          1
+        ],
         "maxSteps": 1,
         "note": "One follow-up, sent 3-36 hours after the first message if no human has replied (see cH5VEk673OFcwQHI's FOLLOWUP_MIN_HOURS/FOLLOWUP_MAX_HOURS in the WA Settings tab)."
       }
@@ -258,6 +260,33 @@
         "GPhJ2BoS8BaIP3JU"
       ],
       "waSession": "dubai_car_recovery",
+      "followup": {
+        "mode": "none"
+      }
+    },
+    {
+      "slug": "ig-rohit-kumar-seo",
+      "name": "Instagram — @rohit_kumar_seo",
+      "channel": "instagram",
+      "brand": "instagram:rohit_kumar_seo",
+      "description": "Reel and carousel commenters on @rohit_kumar_seo. n8n comment bot (Rfqw3qxWwOSCStHD) replies + DMs, the DM bot (XPjJPP1E02sm5yyt) runs follow check, 3 questions, call back or WhatsApp. Every comment and message is pushed to /api/ingest/instagram.",
+      "workflowIds": [
+        "Rfqw3qxWwOSCStHD",
+        "XPjJPP1E02sm5yyt"
+      ],
+      "followup": {
+        "mode": "none"
+      }
+    },
+    {
+      "slug": "ig-ai-automation",
+      "name": "Instagram — @ai_automation_by_rohit",
+      "channel": "instagram",
+      "brand": "instagram:ai_automation_by_rohit",
+      "description": "Automation-reel commenters on @ai_automation_by_rohit (n8n lC6PJBi8VmhQPwmi). Pushed to /api/ingest/instagram.",
+      "workflowIds": [
+        "lC6PJBi8VmhQPwmi"
+      ],
       "followup": {
         "mode": "none"
       }
