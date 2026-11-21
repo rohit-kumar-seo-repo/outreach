@@ -32,7 +32,7 @@ const RANK: Record<string, number> = { new: 0, contacted: 1, interested: 2, meet
 
 /** Pipeline stage this event earns: our first message = contacted, their answers / ask for a call = interested. */
 export function stageFor(e: Pick<IgEvent, 'fromMe' | 'needsYou' | 'stage'>): 'contacted' | 'interested' | null {
-  if (e.needsYou || (!e.fromMe && e.stage && ['q2', 'q3', 'close', 'ask_number', 'qualified', 'handoff'].includes(e.stage))) return 'interested';
+  if (e.needsYou || (!e.fromMe && e.stage && ['q2', 'q3', 'close', 'ask_number', 'qualified', 'handoff', 'qualifying'].includes(e.stage))) return 'interested';
   if (e.fromMe) return 'contacted';
   return null;
 }

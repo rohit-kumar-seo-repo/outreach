@@ -11,6 +11,7 @@ import { syncMailboxes } from '../lib/sync/mail-sync';
 import { scanN8nWorkflows, syncN8nExecutions, syncUntrackedWorkflowExecutions } from '../lib/sync/n8n-sync';
 import { syncSheets } from '../lib/sync/sheets-sync';
 import { syncWaha } from '../lib/sync/waha';
+import { syncInstagram } from '../lib/instagram/sync';
 
 interface Job {
   name: string;
@@ -49,6 +50,8 @@ async function main(): Promise<void> {
     { name: 'n8n-workflow-health', everySec: i.workflowHealth, run: syncUntrackedWorkflowExecutions },
     { name: 'mailboxes', everySec: i.mail, run: syncMailboxes },
     { name: 'waha', everySec: i.waha, run: syncWaha },
+    // Instagram comment + DM bot logs from n8n (via the Data Bridge), every 2 minutes
+    { name: 'instagram', everySec: 120, run: syncInstagram },
     { name: 'derive', everySec: i.derive, run: deriveLeads },
     {
       name: 'alerts',
