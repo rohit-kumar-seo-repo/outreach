@@ -38,13 +38,24 @@ export function commentRowEvents(r: Row): unknown[] {
   return out;
 }
 
-const ANSWER: Record<string, keyof NonNullable<IgEvent['answers']>> = { q2: 'business', q3: 'problem', close: 'volume' };
+// 2026-11-28 flow: comment DM = free resource + Q1 (their situation), q2 = business + city (skipped when Q1 asked it),
+// close = call back / WhatsApp / cal.com. The logged stage is the step the bot moved TO after their message.
+const ANSWER: Record<string, keyof NonNullable<IgEvent['answers']>> = { q2: 'problem', q3: 'problem', close: 'business' };
+const pageOf = (r: Row) => (s(r.page) === 'ai' ? 'ai_automation_by_rohit' : 'rohit_kumar_seo');
+
+/** Rohit 2026-11-28: only people who answered at least one DM question reach the CRM; likes, emojis and silent commenters stay out. */
+const ANSWERED = new Set(['q2', 'q3', 'close', 'ask_number', 'qualified', 'handoff']);
+export function engagedKeys(dmRows: Row[]): Set<string> {
+  const out = new Set<string>();
+  for (const r of dmRows) if (s(r.send_status) !== 'dry' && ANSWERED.has(s(r.stage)) && s(r.username)) out.add(`${pageOf(r)}:${s(r.username).toLowerCase()}`);
+  return out;
+}
 
 /** "Instagram DM AI Log": one row per bot step; user_text is what they wrote, reply_text what the bot answered. */
 export function dmRowEvents(r: Row): unknown[] {
   const mid = s(r.user_msg_id), user = s(r.username), stage = s(r.stage);
   if (!mid || !user || s(r.send_status) === 'dry') return [];
-  const base = { page: 'rohit_kumar_seo', username: user, threadId: s(r.thread_id) || undefined };
+  const base = { page: pageOf(r), username: user, threadId: s(r.thread_id) || undefined };
   const at = iso(r.createdAt);
   const text = s(r.user_text);
   const answers: Record<string, string> = {};
@@ -67,6 +78,14 @@ export async function syncInstagram(): Promise<void> {
   if (!bridgeConfigured()) return;
   let ok = true;
   let n = 0;
+  let engaged: Set<string>;
+  try {
+    engaged = engagedKeys((await fetchSource('ig_dm_log')).rows);
+  } catch (err) {
+    await recordIntegrationError('ingest:instagram', `Instagram pull (ig_dm_log) failed: ${(err as Error).message}`, {}, 'warning');
+    await markSource('ingest:instagram', false, 'Instagram pull failed (see alerts)', {});
+    return;
+  }
   for (const [key, toEvents] of [['ig_comment_leads', commentRowEvents], ['ig_dm_log', dmRowEvents]] as const) {
     try {
       const res = await fetchSource(key);
@@ -76,6 +95,7 @@ export async function syncInstagram(): Promise<void> {
         for (const raw of toEvents(row)) {
           const parsed = igEvent.safeParse(raw);
           if (!parsed.success) continue;
+          if (!engaged.has(`${parsed.data.page}:${parsed.data.username}`)) continue;
           const r = await ingestIg(parsed.data);
           if (r.inserted) n++;
         }
